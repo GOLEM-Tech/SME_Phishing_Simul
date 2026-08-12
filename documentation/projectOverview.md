@@ -17,7 +17,25 @@ The main objective of the project is to create a platform that can:
 * Test employee knowledge through quizzes.
 * Generate useful reports and analytics for administrators.
 
-## 3. Main Components
+## 3. Tech Stack
+
+### ⚙️ Backend
+
+| Technology                   | Purpose                                      |
+| ---------------------------- | -------------------------------------------- |
+| 🟢 **Node.js**               | Backend runtime and application development  |
+| 🗄️ **MySQL**                | Database for storing application data        |
+| 🔑 **JWT (JSON Web Tokens)** | Authentication and secure session management |
+
+### Frontend
+
+*To be finalized.*
+
+### Other Technologies
+
+*To be finalized based on project requirements.*
+
+## 4. Main Components
 
 ### 🔐 Administrator Management
 
@@ -79,7 +97,7 @@ Administrators can view campaign results and generate reports containing simulat
 
 Reports may be exported as **PDF or CSV** files.
 
-## 4. Basic Workflow
+## 5. Basic Workflow
 
 ```text
 Administrator Login
@@ -105,7 +123,7 @@ Update Progress
 Generate Report
 ```
 
-## 5. Development Structure
+## 6. Development Structure
 
 The project is divided between four developers:
 
@@ -116,7 +134,7 @@ The project is divided between four developers:
 | Developer 3 | Campaigns, Email Simulation & Landing Pages  |
 | Developer 4 | Dashboards, Reports & Progress Tracking      |
 
-## 6. Security Considerations
+## 7. Security Considerations
 
 The platform is intended for **authorized and controlled phishing simulations only**.
 
@@ -128,7 +146,7 @@ The prototype should:
 * Restrict administrative functionality to authorized users.
 * Maintain audit logs for important administrative actions.
 
-## 7. Expected Outcome
+## 8. Expected Outcome
 
 At the end of development, the project should provide a functional prototype capable of managing the complete phishing simulation lifecycle:
 
