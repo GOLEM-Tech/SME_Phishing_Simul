@@ -30,15 +30,6 @@ The project allows administrators to create phishing simulations, manage employe
 * 📄 PDF and CSV exports
 * 📝 Audit logs
 
-## 👨‍💻 Project Team
-
-This project is being developed by a team of four members.
-
-1. Maitreya Jadhav
-2. Om Jalela
-3. Sharmista Bar
-4. Abdul Hannan
-
 ## 📂 Documentation
 
 Detailed project information is available in the [`documentation`](./documentation) folder.
