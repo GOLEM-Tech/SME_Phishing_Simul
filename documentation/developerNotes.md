@@ -16,3 +16,11 @@ b) FOR LOGIN AND JWT GENERATION
 c) TO CHECK IF PASSPORT.JS IS USING A PROTECTED ROUTE AND IS GRANTING ACCESS
   curl -X GET http://localhost:3000/api/auth/protected \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6IkFkbWluIiwiaWF0IjoxNzg4NjI5MzI2LCJleHAiOjE3ODg2NTgxMjZ9.EZwFyMFRchmOj3NQc4fdPyvWs_iHouqWPsovoggwLXY"
+
+  Om Jalela: TUTORIAL ON HOW TO USE SEE/DELETE EMPLOYEES RN because i didnt add the ui for checking out which employees are in the database
+
+  use sql for this 
+
+  command to fetch employees:      mysql -h 127.0.0.1 -u app_user -p -e "USE phishing_simulation; SELECT * FROM Employees;"
+
+  command to delete employees (by email):     mysql -h 127.0.0.1 -u app_user -p -e "USE phishing_simulation; DELETE FROM Employees WHERE email = 'PUT THE EMAIL HERE';"
