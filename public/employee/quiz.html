@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Phishing Awareness Quiz</title>
+
+    <link rel="stylesheet" href="../assets/css/employee.css">
+</head>
+
+<body>
+
+    <main class="training-container">
+
+        <header class="training-header">
+            <h1>Phishing Awareness Quiz</h1>
+            <p>Test your knowledge of phishing and online safety.</p>
+        </header>
+
+        <section class="training-card">
+
+            <div id="quizContainer">
+
+                <div class="training-progress">
+                    <span id="questionNumber">Question 1 of 5</span>
+                    <strong id="scoreText">Score: 0</strong>
+                </div>
+
+                <article class="training-content">
+
+                    <h2 id="questionText">
+                        Which of the following is a common sign of a phishing email?
+                    </h2>
+
+                    <div id="optionsContainer"></div>
+
+                </article>
+
+                <div class="training-actions">
+                    <button id="nextQuestionBtn" type="button">
+                        Next Question
+                    </button>
+                </div>
+
+            </div>
+
+            <div id="resultContainer" style="display: none;">
+
+                <article class="training-content">
+                    <h2>Quiz Completed!</h2>
+
+                    <p id="finalScore"></p>
+
+                    <p id="resultMessage"></p>
+                </article>
+
+                <div class="training-actions">
+                    <button id="retakeQuizBtn" type="button">
+                        Retake Quiz
+                    </button>
+
+                    <button id="backToTrainingBtn" type="button">
+                        Back to Training
+                    </button>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <script src="../assets/js/employee/quiz.js"></script>
+
+</body>
+</html>

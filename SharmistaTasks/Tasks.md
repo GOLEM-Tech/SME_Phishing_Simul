@@ -1,30 +1,39 @@
-# Dev 2 - Sharmista Bar
+# Dev 2 Tasks — Sharmista
 
-## Assigned Tasks
+## Assigned Modules
 
 ### 1. Training Module
-- Create training modules for employees who fail phishing simulations.
-- Add phishing awareness lessons.
-- Track training progress and completion.
+- [ ] Training module model
+- [ ] Training controller
+- [ ] Training routes
+- [ ] Training module seed data
+- [ ] Employee training page
+- [ ] Employee training JavaScript
+- [ ] Admin training page
 
 ### 2. Quiz System
-- Create multiple-choice quizzes.
-- Add questions and answers.
-- Calculate quiz scores.
-- Determine Pass/Fail status.
-- Store quiz results.
+- [ ] Quiz model
+- [ ] Quiz question model
+- [ ] Quiz result model
+- [ ] Quiz controller
+- [ ] Quiz routes
+- [ ] Employee quiz page
+- [ ] Employee quiz JavaScript
+- [ ] Quiz scoring
+- [ ] Pass/Fail logic
 
 ### 3. Automatic Risk Detection
-- Analyze phishing simulation events.
-- Categorize employees as Low, Medium, or High Risk.
-- Clicking a phishing link should result in Medium Risk.
-- Credential submission should result in High Risk.
-- Store the risk level and reason.
+- [ ] Risk score model
+- [ ] Risk detection service
+- [ ] Event-to-risk mapping
+- [ ] Automatic risk level calculation
+- [ ] Training trigger after phishing failure
 
-## Development Order
+## Testing
+- [ ] Training tests
+- [ ] Quiz tests
+- [ ] Integration testing
 
-1. Training Module
-2. Quiz System
-3. Automatic Risk Detection
-4. Connect the modules
-5. Test the complete flow
+## Status
+
+Current status: Project setup completed. Dev 2 implementation starting.
