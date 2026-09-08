@@ -4,6 +4,7 @@ const passport = require('passport');
 const multer = require('multer');
 const path = require('path');
 const employeeController = require('../controllers/employeeController');
+const auditMiddleware = require('../middleware/auditMiddleware'); // <-- 1. IMPORT HERE
 
 const upload = multer({
   dest: 'uploads/',
@@ -19,6 +20,7 @@ const upload = multer({
 
 // Protect all employee routes with JWT via Passport
 router.use(passport.authenticate('jwt', { session: false }));
+router.use(auditMiddleware); // <-- 2. MOUNT HERE (Captures state changes for authenticated admins)
 
 router.post('/upload-csv', upload.single('file'), employeeController.uploadCSV);
 router.post('/', employeeController.createEmployee);
