@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Training Management</title>
+
+    <link rel="stylesheet" href="../assets/css/employee.css">
+</head>
+
+<body>
+
+    <main class="training-container">
+
+        <header class="training-header">
+            <h1>Training Management</h1>
+            <p>Manage security awareness training modules for employees.</p>
+        </header>
+
+        <section class="training-card">
+
+            <div class="training-content">
+
+                <h2>Security Awareness Training</h2>
+
+                <p>
+                    Create and manage training content that helps employees
+                    identify phishing attacks and improve their cybersecurity
+                    awareness.
+                </p>
+
+                <h3>Available Training Modules</h3>
+
+                <ul>
+                    <li>Recognizing Phishing Attacks</li>
+                    <li>Identifying Suspicious Links</li>
+                    <li>Detecting Spoofed Emails</li>
+                    <li>Recognizing Fake Login Pages</li>
+                </ul>
+
+            </div>
+
+            <div class="training-actions">
+
+                <button id="addTrainingBtn" type="button">
+                    Add Training Module
+                </button>
+
+                <button id="viewTrainingBtn" type="button">
+                    View Training Modules
+                </button>
+
+            </div>
+
+            <div id="adminMessage"></div>
+
+        </section>
+
+    </main>
+
+    <script>
+        const addTrainingBtn =
+            document.getElementById("addTrainingBtn");
+
+        const viewTrainingBtn =
+            document.getElementById("viewTrainingBtn");
+
+        const adminMessage =
+            document.getElementById("adminMessage");
+
+        addTrainingBtn.addEventListener("click", () => {
+            adminMessage.textContent =
+                "Training module creation will be connected to the backend.";
+        });
+
+        viewTrainingBtn.addEventListener("click", () => {
+            adminMessage.textContent =
+                "Training modules will be loaded from the database.";
+        });
+    </script>
+
+</body>
+</html>

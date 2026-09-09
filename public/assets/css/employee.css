@@ -1,0 +1,112 @@
+/* Employee Training Page */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f7fb;
+    color: #1f2937;
+    min-height: 100vh;
+}
+
+.training-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.training-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.training-header h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.training-header p {
+    color: #6b7280;
+    font-size: 16px;
+}
+
+.training-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+}
+
+.training-progress {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+.progress-fill {
+    width: 0%;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.training-content h2 {
+    margin-bottom: 15px;
+}
+
+.training-content h3 {
+    margin-top: 25px;
+    margin-bottom: 10px;
+}
+
+.training-content p {
+    line-height: 1.7;
+    margin-bottom: 15px;
+}
+
+.training-content ul {
+    padding-left: 25px;
+    line-height: 1.8;
+}
+
+.training-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.training-actions button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+}
+
+#completeTrainingBtn {
+    background: #2563eb;
+    color: white;
+}
+
+#startQuizBtn {
+    background: #16a34a;
+    color: white;
+}
+
+.training-actions button:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
