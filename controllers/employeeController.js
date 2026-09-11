@@ -5,56 +5,113 @@ const pool = require('../config/db');
 // POST /api/employees
 exports.createEmployee = async (req, res) => {
   try {
-    const { name, email, department } = req.body;
+    const { name, email, department, risk_level } = req.body;
 
     if (!name || !email) {
-      return res.status(400).json({ message: 'Name and email are required.' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Name and email are required.' 
+      });
     }
 
-    const dept = department || 'General';
+    const dept = department && department.trim() !== '' ? department.trim() : 'General';
+    const risk = risk_level && ['Low', 'Medium', 'High'].includes(risk_level) ? risk_level : 'Low';
 
-    const [existing] = await pool.execute('SELECT id FROM Employees WHERE email = ?', [email]);
+    const [existing] = await pool.execute('SELECT id FROM Employees WHERE email = ?', [email.trim()]);
     if (existing.length > 0) {
-      return res.status(409).json({ message: 'Employee with this email already exists.' });
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Employee with this email already exists.' 
+      });
     }
 
     const [result] = await pool.execute(
       'INSERT INTO Employees (name, email, department, risk_level) VALUES (?, ?, ?, ?)',
-      [name, email, dept, 'Low']
+      [name.trim(), email.trim(), dept, risk]
     );
 
     return res.status(201).json({
+      success: true,
       message: 'Employee created successfully.',
       employeeId: result.insertId
     });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    console.error('Error creating employee:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error.', 
+      error: error.message 
+    });
   }
 };
 
-// GET /api/employees
+// GET /api/employees (supports ?search=keyword&department=IT&risk_level=High&page=1&limit=20)
 exports.getAllEmployees = async (req, res) => {
   try {
-    const { department, risk_level } = req.query;
-    let query = 'SELECT id, name, email, department, risk_level, created_at FROM Employees WHERE 1=1';
+    const { search, department, risk_level, page = 1, limit = 20 } = req.query;
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.max(1, Math.min(100, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    const conditions = [];
     const params = [];
 
-    if (department) {
-      query += ' AND department = ?';
-      params.push(department);
+    // Search across name or email
+    if (search && search.trim() !== '') {
+      conditions.push('(name LIKE ? OR email LIKE ?)');
+      const searchParam = `%${search.trim()}%`;
+      params.push(searchParam, searchParam);
     }
 
-    if (risk_level) {
-      query += ' AND risk_level = ?';
-      params.push(risk_level);
+    // Department filter
+    if (department && department.trim() !== '') {
+      conditions.push('department = ?');
+      params.push(department.trim());
     }
 
-    query += ' ORDER BY created_at DESC';
+    // Risk level filter
+    if (risk_level && ['Low', 'Medium', 'High'].includes(risk_level.trim())) {
+      conditions.push('risk_level = ?');
+      params.push(risk_level.trim());
+    }
 
-    const [rows] = await pool.execute(query, params);
-    return res.status(200).json({ count: rows.length, employees: rows });
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // 1. Fetch total count matching active filters
+    const countSql = `SELECT COUNT(*) AS total FROM Employees ${whereClause}`;
+    const [countRows] = await pool.execute(countSql, params);
+    const totalRecords = countRows[0].total;
+    const totalPages = Math.ceil(totalRecords / limitNum) || 1;
+
+    // 2. Fetch paginated slice (limit and offset passed as validated integers)
+    const dataSql = `
+      SELECT id, name, email, department, risk_level, created_at, updated_at
+      FROM Employees
+      ${whereClause}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    const [employees] = await pool.query(dataSql, [...params, limitNum, offset]);
+
+    return res.status(200).json({
+      success: true,
+      pagination: {
+        totalRecords,
+        totalPages,
+        currentPage: pageNum,
+        limit: limitNum
+      },
+      count: employees.length,
+      employees
+    });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    console.error('Error fetching employees:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error while retrieving employees.', 
+      error: error.message 
+    });
   }
 };
 
@@ -63,17 +120,28 @@ exports.getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
     const [rows] = await pool.execute(
-      'SELECT id, name, email, department, risk_level, created_at FROM Employees WHERE id = ?',
+      'SELECT id, name, email, department, risk_level, created_at, updated_at FROM Employees WHERE id = ?',
       [id]
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ message: 'Employee not found.' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Employee not found.' 
+      });
     }
 
-    return res.status(200).json({ employee: rows[0] });
+    return res.status(200).json({ 
+      success: true, 
+      employee: rows[0] 
+    });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    console.error('Error fetching employee by id:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error.', 
+      error: error.message 
+    });
   }
 };
 
@@ -85,7 +153,10 @@ exports.updateEmployee = async (req, res) => {
 
     const [existing] = await pool.execute('SELECT id FROM Employees WHERE id = ?', [id]);
     if (existing.length === 0) {
-      return res.status(404).json({ message: 'Employee not found.' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Employee not found.' 
+      });
     }
 
     const updates = [];
@@ -93,31 +164,45 @@ exports.updateEmployee = async (req, res) => {
 
     if (name !== undefined) {
       updates.push('name = ?');
-      params.push(name);
+      params.push(name.trim());
     }
     if (department !== undefined) {
       updates.push('department = ?');
-      params.push(department);
+      params.push(department.trim());
     }
     if (risk_level !== undefined) {
       if (!['Low', 'Medium', 'High'].includes(risk_level)) {
-        return res.status(400).json({ message: "risk_level must be 'Low', 'Medium', or 'High'." });
+        return res.status(400).json({ 
+          success: false, 
+          message: "risk_level must be 'Low', 'Medium', or 'High'." 
+        });
       }
       updates.push('risk_level = ?');
       params.push(risk_level);
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ message: 'No valid fields provided to update.' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'No valid fields provided to update.' 
+      });
     }
 
     params.push(id);
     const sql = `UPDATE Employees SET ${updates.join(', ')} WHERE id = ?`;
     await pool.execute(sql, params);
 
-    return res.status(200).json({ message: 'Employee updated successfully.' });
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Employee updated successfully.' 
+    });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    console.error('Error updating employee:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error.', 
+      error: error.message 
+    });
   }
 };
 
@@ -128,19 +213,33 @@ exports.deleteEmployee = async (req, res) => {
     const [result] = await pool.execute('DELETE FROM Employees WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Employee not found.' });
+      return res.status(404).json({ 
+        success: false, 
+        message: 'Employee not found.' 
+      });
     }
 
-    return res.status(200).json({ message: 'Employee deleted successfully.' });
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Employee deleted successfully.' 
+    });
   } catch (error) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    console.error('Error deleting employee:', error);
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Internal server error.', 
+      error: error.message 
+    });
   }
 };
 
 // POST /api/employees/upload-csv
 exports.uploadCSV = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: 'Please upload a CSV file.' });
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Please upload a CSV file.' 
+    });
   }
 
   const results = [];
@@ -158,10 +257,15 @@ exports.uploadCSV = async (req, res) => {
       }
     })
     .on('end', async () => {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
 
       if (results.length === 0) {
-        return res.status(400).json({ message: 'CSV file contains no valid rows.' });
+        return res.status(400).json({ 
+          success: false, 
+          message: 'CSV file contains no valid rows.' 
+        });
       }
 
       try {
@@ -176,16 +280,28 @@ exports.uploadCSV = async (req, res) => {
         const [dbResult] = await pool.query(sql, [results]);
 
         return res.status(200).json({
+          success: true,
           message: 'CSV processed successfully.',
           totalRows: results.length,
           affectedRows: dbResult.affectedRows
         });
       } catch (dbError) {
-        return res.status(500).json({ message: 'Database insert failed.', error: dbError.message });
+        console.error('Database insert error during CSV upload:', dbError);
+        return res.status(500).json({ 
+          success: false, 
+          message: 'Database insert failed.', 
+          error: dbError.message 
+        });
       }
     })
     .on('error', (err) => {
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-      return res.status(500).json({ message: 'Failed to parse CSV.', error: err.message });
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      return res.status(500).json({ 
+        success: false, 
+        message: 'Failed to parse CSV.', 
+        error: err.message 
+      });
     });
 };

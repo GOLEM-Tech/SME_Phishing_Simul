@@ -2,6 +2,10 @@ Om Jalela : Just completed authentication with passport.js and i also hid the .e
 
 
 
+
+
+
+
 1. to start the server -- (node server.js) {either type the url localhost:3000 in the browser or click on the link on the terminal and to check api status use the following link : http://localhost:3000/api/health}
 
 2. to check the authentication {abhi frontend nahi available hai merepaas toh thoda temporarily ye commands se check karo USING A SECOND TERMINAL}
@@ -24,3 +28,10 @@ c) TO CHECK IF PASSPORT.JS IS USING A PROTECTED ROUTE AND IS GRANTING ACCESS
   command to fetch employees:      mysql -h 127.0.0.1 -u app_user -p -e "USE phishing_simulation; SELECT * FROM Employees;"
 
   command to delete employees (by email):     mysql -h 127.0.0.1 -u app_user -p -e "USE phishing_simulation; DELETE FROM Employees WHERE email = 'PUT THE EMAIL HERE';"
+
+
+
+
+
+
+almost pura ho chuka hai mera part and ive added the contract details(handoff dteails) in documentation/API_DOCS.md
