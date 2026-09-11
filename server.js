@@ -6,6 +6,7 @@ const passport = require('./config/passport');
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/track', trackingRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
