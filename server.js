@@ -7,6 +7,7 @@ const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
 const auditLogRoutes = require('./routes/auditLogRoutes');
+const reportRoutes = require('./routes/reportRoutes');
 
 const app = express();
 
@@ -23,6 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/track', trackingRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/reports', reportRoutes);
 
 // Health Check Route
 app.get('/api/health', (req, res) => {
