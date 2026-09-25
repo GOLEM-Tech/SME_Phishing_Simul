@@ -27,7 +27,9 @@
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
     "mysql2": "^3.23.3",
+    "nodemailer": "^10.0.10",
     "passport": "^0.7.0",
-    "passport-jwt": "^4.0.1"
+    "passport-jwt": "^4.0.1",
+    "pdfkit": "^0.20.2"
   }
 }
