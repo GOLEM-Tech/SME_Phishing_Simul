@@ -1,217 +1,172 @@
 'use strict';
 
-// DB pool — parameterized queries only
-const db = require('../config/db');
+const pool = require('../config/db');
 
-// --- Private: regex-based token replacement ---
-// Replaces {{Token}} patterns; missing keys → empty string fallback
-const compileTemplate = (htmlBody, variables = {}) => {
-  if (typeof htmlBody !== 'string') return '';
-  return htmlBody.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+// Token interpolator: replaces {{Placeholder}} patterns
+const compileTemplate = (text, variables = {}) => {
+  if (typeof text !== 'string') return '';
+  return text.replace(/\{\{(\w+)\}\}/g, (match, key) => {
     const val = variables[key];
     return val !== undefined && val !== null ? String(val) : '';
   });
 };
 
-// --- CREATE ---
+// POST /api/templates
 const createTemplate = async (req, res, next) => {
   try {
-    const { name, description, subject, body_html, category } = req.body;
+    const { name, subject, body_html } = req.body;
 
     if (!name || !subject || !body_html) {
       return res.status(400).json({
         success: false,
-        message: 'Fields name, subject, body_html are required.',
+        message: 'name, subject, and body_html are required fields.'
       });
     }
 
-    const sql = `
-      INSERT INTO EmailTemplates (name, description, subject, body_html, category, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-    `;
-
-    const [result] = await db.execute(sql, [
-      name,
-      description || null,
-      subject,
-      body_html,
-      category || 'general',
-    ]);
+    const [result] = await pool.execute(
+      'INSERT INTO EmailTemplates (name, subject, body_html) VALUES (?, ?, ?)',
+      [name, subject, body_html]
+    );
 
     return res.status(201).json({
       success: true,
-      message: 'Template created.',
-      data: { template_id: result.insertId },
+      message: 'Template created successfully.',
+      data: { id: result.insertId }
     });
   } catch (err) {
     next(err);
   }
 };
 
-// --- READ ALL ---
+// GET /api/templates
 const getAllTemplates = async (req, res, next) => {
   try {
-    const sql = `
-      SELECT
-        template_id,
-        name,
-        description,
-        subject,
-        category,
-        created_at,
-        updated_at
-      FROM EmailTemplates
-      ORDER BY created_at DESC
-    `;
-
-    const [rows] = await db.execute(sql);
+    const [rows] = await pool.execute(
+      'SELECT id, name, subject, body_html, created_at FROM EmailTemplates ORDER BY created_at DESC'
+    );
 
     return res.status(200).json({
       success: true,
       count: rows.length,
-      data: rows,
+      data: rows
     });
   } catch (err) {
     next(err);
   }
 };
 
-// --- READ ONE ---
+// GET /api/templates/:id
 const getTemplateById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const sql = `
-      SELECT
-        template_id,
-        name,
-        description,
-        subject,
-        body_html,
-        category,
-        created_at,
-        updated_at
-      FROM EmailTemplates
-      WHERE template_id = ?
-      LIMIT 1
-    `;
-
-    const [rows] = await db.execute(sql, [id]);
+    const [rows] = await pool.execute(
+      'SELECT id, name, subject, body_html, created_at FROM EmailTemplates WHERE id = ? LIMIT 1',
+      [id]
+    );
 
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: `Template with id ${id} not found.`,
+        message: `Template with ID ${id} not found.`
       });
     }
 
     return res.status(200).json({
       success: true,
-      data: rows[0],
+      data: rows[0]
     });
   } catch (err) {
     next(err);
   }
 };
 
-// --- UPDATE ---
+// PUT /api/templates/:id
 const updateTemplate = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, subject, body_html, category } = req.body;
+    const { name, subject, body_html } = req.body;
 
-    // Build dynamic SET clause — only update provided fields
     const fields = [];
     const values = [];
 
-    if (name !== undefined)        { fields.push('name = ?');        values.push(name); }
-    if (description !== undefined) { fields.push('description = ?'); values.push(description); }
-    if (subject !== undefined)     { fields.push('subject = ?');     values.push(subject); }
-    if (body_html !== undefined)   { fields.push('body_html = ?');   values.push(body_html); }
-    if (category !== undefined)    { fields.push('category = ?');    values.push(category); }
+    if (name !== undefined)      { fields.push('name = ?');      values.push(name); }
+    if (subject !== undefined)   { fields.push('subject = ?');   values.push(subject); }
+    if (body_html !== undefined) { fields.push('body_html = ?'); values.push(body_html); }
 
     if (fields.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No updatable fields provided.',
+        message: 'No updatable fields provided.'
       });
     }
 
-    fields.push('updated_at = NOW()');
     values.push(id);
+    const sql = `UPDATE EmailTemplates SET ${fields.join(', ')} WHERE id = ?`;
 
-    const sql = `UPDATE EmailTemplates SET ${fields.join(', ')} WHERE template_id = ?`;
-
-    const [result] = await db.execute(sql, values);
+    const [result] = await pool.execute(sql, values);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
-        message: `Template with id ${id} not found.`,
+        message: `Template with ID ${id} not found.`
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Template updated.',
+      message: 'Template updated successfully.'
     });
   } catch (err) {
     next(err);
   }
 };
 
-// --- DELETE ---
+// DELETE /api/templates/:id
 const deleteTemplate = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const sql = `DELETE FROM EmailTemplates WHERE template_id = ?`;
-
-    const [result] = await db.execute(sql, [id]);
+    const [result] = await pool.execute('DELETE FROM EmailTemplates WHERE id = ?', [id]);
 
     if (result.affectedRows === 0) {
       return res.status(404).json({
         success: false,
-        message: `Template with id ${id} not found.`,
+        message: `Template with ID ${id} not found.`
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Template ${id} permanently deleted.`,
+      message: `Template ${id} deleted successfully.`
     });
   } catch (err) {
     next(err);
   }
 };
 
-// --- PREVIEW: fetch template + inject mock vars → return compiled HTML ---
+// POST /api/templates/:id/preview
 const previewTemplate = async (req, res, next) => {
   try {
     const { id } = req.params;
-    // variables: e.g. { EmployeeName: "John", TrackingToken: "abc123", RedirectURL: "https://..." }
     const { variables } = req.body;
 
     if (!variables || typeof variables !== 'object' || Array.isArray(variables)) {
       return res.status(400).json({
         success: false,
-        message: 'Request body must include a variables object.',
+        message: 'Request body must include a variables object.'
       });
     }
 
-    const sql = `
-      SELECT template_id, name, subject, body_html
-      FROM EmailTemplates
-      WHERE template_id = ?
-      LIMIT 1
-    `;
-
-    const [rows] = await db.execute(sql, [id]);
+    const [rows] = await pool.execute(
+      'SELECT id, name, subject, body_html FROM EmailTemplates WHERE id = ? LIMIT 1',
+      [id]
+    );
 
     if (rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: `Template with id ${id} not found.`,
+        message: `Template with ID ${id} not found.`
       });
     }
 
@@ -222,11 +177,11 @@ const previewTemplate = async (req, res, next) => {
     return res.status(200).json({
       success: true,
       data: {
-        template_id:      template.template_id,
-        name:             template.name,
+        id: template.id,
+        name: template.name,
         compiled_subject: compiledSubject,
-        compiled_body:    compiledBody,
-      },
+        compiled_body: compiledBody
+      }
     });
   } catch (err) {
     next(err);
@@ -240,5 +195,5 @@ module.exports = {
   getTemplateById,
   updateTemplate,
   deleteTemplate,
-  previewTemplate,
+  previewTemplate
 };
