@@ -427,3 +427,78 @@ exports.exportCampaignPDF = async (req, res) => {
     return res.end();
   }
 };
+/**
+ * GET /api/reports/training-progress
+ * Aggregates training completion and quiz assessment results per employee.
+ */
+exports.getEmployeeTrainingProgress = async (req, res) => {
+  try {
+    const { department, passed } = req.query;
+    const conditions = [];
+    const params = [];
+
+    if (department && department.trim() !== '') {
+      conditions.push('e.department = ?');
+      params.push(department.trim());
+    }
+
+    if (passed !== undefined && passed !== '') {
+      const isPassed = passed === 'true' || passed === '1';
+      conditions.push('qr.passed = ?');
+      params.push(isPassed ? 1 : 0);
+    }
+
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    const query = `
+      SELECT
+        e.id AS employee_id,
+        e.name AS employee_name,
+        e.email AS employee_email,
+        e.department,
+        e.risk_level,
+        COUNT(DISTINCT qr.id) AS total_quizzes_taken,
+        COALESCE(MAX(qr.score), 0) AS highest_score,
+        COALESCE(AVG(qr.score), 0) AS average_score,
+        MAX(CASE WHEN qr.passed = 1 THEN 1 ELSE 0 END) AS has_passed_any,
+        MAX(qr.completed_at) AS last_assessment_date
+      FROM Employees e
+      LEFT JOIN QuizResults qr ON e.id = qr.employee_id
+      ${whereClause}
+      GROUP BY
+        e.id,
+        e.name,
+        e.email,
+        e.department,
+        e.risk_level
+      ORDER BY e.department ASC, e.name ASC
+    `;
+
+    const [rows] = await pool.execute(query, params);
+
+    const formattedData = rows.map((row) => ({
+      employeeId: row.employee_id,
+      name: row.employee_name,
+      email: row.employee_email,
+      department: row.department || 'General',
+      riskLevel: row.risk_level,
+      quizzesTaken: Number(row.total_quizzes_taken),
+      highestScore: Number(row.highest_score),
+      averageScore: Number(Number(row.average_score).toFixed(2)),
+      hasPassed: row.has_passed_any === 1,
+      lastAssessmentDate: row.last_assessment_date
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: formattedData.length,
+      data: formattedData
+    });
+  } catch (error) {
+    console.error('Error fetching training progress report:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while retrieving training progress report.'
+    });
+  }
+};

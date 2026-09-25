@@ -16,4 +16,7 @@ router.get('/campaign/:id/csv', reportController.exportCampaignCSV);
 // Campaign PDF Executive Report Stream
 router.get('/campaign/:id/pdf', reportController.exportCampaignPDF);
 
+// Employee Training & Assessment Progress Report
+router.get('/training-progress', reportController.getEmployeeTrainingProgress);
+
 module.exports = router;
