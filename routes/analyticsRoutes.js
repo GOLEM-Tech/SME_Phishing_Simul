@@ -13,4 +13,7 @@ router.get('/heatmap', analyticsController.getEmailHeatmap);
 // Cross-department vulnerability comparison matrix
 router.get('/departments', analyticsController.getDepartmentComparative);
 
+// Bi-campaign side-by-side comparison
+router.get('/campaign-comparison', analyticsController.compareCampaigns);
+
 module.exports = router;

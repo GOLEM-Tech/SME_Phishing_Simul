@@ -100,3 +100,114 @@ exports.getDepartmentComparative = async (req, res) => {
     });
   }
 };
+
+/**
+ * Internal helper to aggregate standalone campaign performance for comparison.
+ */
+const getCampaignMetrics = async (campaignId) => {
+  const [campaignRows] = await pool.execute(
+    'SELECT id, name, status, scheduled_at, created_at FROM Campaigns WHERE id = ?',
+    [campaignId]
+  );
+
+  if (campaignRows.length === 0) {
+    return null;
+  }
+
+  const query = `
+    SELECT
+      COUNT(cr.id) AS total_recipients,
+      COALESCE(SUM(cr.sent_at IS NOT NULL), 0) AS total_sent,
+      COUNT(DISTINCT CASE WHEN ee.event_type = 'Delivered' THEN cr.id END) AS delivered,
+      COUNT(DISTINCT CASE WHEN ee.event_type = 'Opened' THEN cr.id END) AS opened,
+      COUNT(DISTINCT CASE WHEN ee.event_type = 'Clicked' THEN cr.id END) AS clicked,
+      COUNT(DISTINCT CASE WHEN ee.event_type = 'Submitted' THEN cr.id END) AS compromised
+    FROM CampaignRecipients cr
+    LEFT JOIN EmailEvents ee ON cr.id = ee.recipient_id
+    WHERE cr.campaign_id = ?;
+  `;
+
+  const [metricsRows] = await pool.execute(query, [campaignId]);
+  const row = metricsRows[0] || {};
+  const totalSent = Number(row.total_sent || 0);
+  const delivered = Number(row.delivered || 0);
+  const opened = Number(row.opened || 0);
+  const clicked = Number(row.clicked || 0);
+  const compromised = Number(row.compromised || 0);
+
+  const calcRate = (num, den) => (den > 0 ? Number(((num / den) * 100).toFixed(2)) : 0);
+
+  return {
+    campaign: campaignRows[0],
+    totals: {
+      recipients: Number(row.total_recipients || 0),
+      sent: totalSent,
+      delivered,
+      opened,
+      clicked,
+      compromised
+    },
+    rates: {
+      deliveryRate: calcRate(delivered, totalSent),
+      openRate: calcRate(opened, totalSent),
+      clickRate: calcRate(clicked, totalSent),
+      compromiseRate: calcRate(compromised, totalSent)
+    }
+  };
+};
+
+/**
+ * GET /api/analytics/campaign-comparison?campaign1=X&campaign2=Y
+ * Side-by-side metric comparison and variance calculation between two campaigns.
+ */
+exports.compareCampaigns = async (req, res) => {
+  const c1 = Number.parseInt(req.query.campaign1, 10);
+  const c2 = Number.parseInt(req.query.campaign2, 10);
+
+  if (!Number.isSafeInteger(c1) || !Number.isSafeInteger(c2) || c1 < 1 || c2 < 1) {
+    return res.status(400).json({
+      success: false,
+      message: 'Query parameters campaign1 and campaign2 must be positive integers.'
+    });
+  }
+
+  if (c1 === c2) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide two different campaign IDs for comparison.'
+    });
+  }
+
+  try {
+    const [campaign1Data, campaign2Data] = await Promise.all([
+      getCampaignMetrics(c1),
+      getCampaignMetrics(c2)
+    ]);
+
+    if (!campaign1Data || !campaign2Data) {
+      return res.status(404).json({
+        success: false,
+        message: 'One or both specified campaigns were not found.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      comparison: {
+        campaign1: campaign1Data,
+        campaign2: campaign2Data,
+        deltas: {
+          openRateDelta: Number((campaign2Data.rates.openRate - campaign1Data.rates.openRate).toFixed(2)),
+          clickRateDelta: Number((campaign2Data.rates.clickRate - campaign1Data.rates.clickRate).toFixed(2)),
+          compromiseRateDelta: Number((campaign2Data.rates.compromiseRate - campaign1Data.rates.compromiseRate).toFixed(2))
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error comparing campaigns:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error while comparing campaigns.'
+    });
+  }
+};
