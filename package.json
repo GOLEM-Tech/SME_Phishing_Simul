@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/GOLEM-Tech/SME_Phishing_Simul#readme",
   "dependencies": {
+    "@google/genai": "^2.24.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "csv-parser": "^3.2.1",

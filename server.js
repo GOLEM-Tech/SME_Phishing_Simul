@@ -19,6 +19,7 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const templateRoutes = require('./routes/templateRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const landingRoutes = require('./routes/landingRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // 1. Initialize Express App
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/campaigns', campaignRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 6. System Health Check Probe
 app.get('/api/health', (req, res) => {
