@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Phishing Platform - API Testbed</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #18181b; color: #f4f4f5; }
+    .card { background: #27272a; border: 1px solid #3f3f46; border-radius: 8px; padding: 16px; margin-bottom: 16px; max-width: 600px; }
+    input, select, button { display: block; margin: 8px 0; padding: 8px; width: 100%; box-sizing: border-box; background: #18181b; color: #fff; border: 1px solid #52525b; border-radius: 4px; }
+    button { background: #2563eb; cursor: pointer; font-weight: bold; border: none; }
+    button:hover { background: #1d4ed8; }
+    pre { background: #09090b; padding: 12px; border-radius: 6px; overflow-x: auto; color: #4ade80; }
+  </style>
+</head>
+<body>
+  <h2>Dev 1 Testing Console</h2>
+
+  <!-- 1. Admin Login -->
+  <div class="card">
+    <h3>1. Admin Login</h3>
+    <input type="email" id="loginEmail" placeholder="admin@example.com" value="admin@example.com">
+    <input type="password" id="loginPassword" placeholder="Password" value="Password123!">
+    <button onclick="handleLogin()">Login & Save Token</button>
+    <div id="tokenStatus" style="color: #a1a1aa; font-size: 12px;">Token: None</div>
+  </div>
+
+  <!-- 2. Single Employee CRUD -->
+  <div class="card">
+    <h3>2. Create Employee</h3>
+    <input type="text" id="empName" placeholder="Full Name">
+    <input type="email" id="empEmail" placeholder="employee@company.com">
+    <input type="text" id="empDept" placeholder="Department (e.g. IT, HR)" value="General">
+    <button onclick="handleCreateEmployee()">Create Employee</button>
+  </div>
+
+  <!-- 3. Bulk CSV Upload -->
+  <div class="card">
+    <h3>3. Upload Employees CSV</h3>
+    <input type="file" id="csvFileInput" accept=".csv">
+    <button onclick="handleUploadCSV()">Upload CSV</button>
+  </div>
+
+  <!-- Console Log / Output -->
+  <div class="card">
+    <h3>Server Response</h3>
+    <pre id="output">Responses will appear here...</pre>
+  </div>
+
+  <script>
+    let authToken = localStorage.getItem('jwt') || '';
+    if (authToken) document.getElementById('tokenStatus').innerText = 'Token: Loaded from storage';
+
+    function logResponse(data) {
+      document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+    }
+
+    async function handleLogin() {
+      const email = document.getElementById('loginEmail').value;
+      const password = document.getElementById('loginPassword').value;
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (data.token) {
+        authToken = data.token; // "Bearer eyJhbGciOi..."
+        localStorage.setItem('jwt', authToken);
+        document.getElementById('tokenStatus').innerText = 'Token: Active';
+      }
+      logResponse(data);
+    }
+
+    async function handleCreateEmployee() {
+      const name = document.getElementById('empName').value;
+      const email = document.getElementById('empEmail').value;
+      const department = document.getElementById('empDept').value;
+      const res = await fetch('/api/employees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': authToken
+        },
+        body: JSON.stringify({ name, email, department })
+      });
+      logResponse(await res.json());
+    }
+
+    async function handleUploadCSV() {
+      const fileInput = document.getElementById('csvFileInput');
+      if (!fileInput.files[0]) return alert('Select a CSV file first');
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      const res = await fetch('/api/employees/upload-csv', {
+        method: 'POST',
+        headers: { 'Authorization': authToken },
+        body: formData
+      });
+      logResponse(await res.json());
+    }
+  </script>
+</body>
+</html>
