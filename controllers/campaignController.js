@@ -1,12 +1,14 @@
 'use strict';
 
+const crypto = require('crypto');
 const pool = require('../config/db');
+const emailService = require('../services/emailService');
 
 const VALID_STATUSES = ['Draft', 'Scheduled', 'Running', 'Completed'];
 
 const ALLOWED_TRANSITIONS = {
   Draft: ['Scheduled', 'Running'],
-  Scheduled: ['Running'],
+  Scheduled: ['Running', 'Draft'],
   Running: ['Completed'],
   Completed: []
 };
@@ -126,7 +128,6 @@ async function getCampaignById(req, res, next) {
       return res.status(404).json({ success: false, error: 'Campaign not found.' });
     }
 
-    // Join with correct Employees schema (e.id, e.name, e.email)
     const [recipients] = await pool.execute(
       `SELECT cr.id AS recipient_id, cr.employee_id, e.name AS employee_name, e.email AS employee_email,
               cr.tracking_token, cr.sent_at
@@ -268,7 +269,6 @@ async function duplicateCampaign(req, res, next) {
     const newCampaignId = insertResult.insertId;
 
     if (sourceRecipients.length > 0) {
-      const crypto = require('crypto');
       for (const r of sourceRecipients) {
         const freshToken = crypto.randomBytes(32).toString('hex');
         await conn.execute(
@@ -296,11 +296,245 @@ async function duplicateCampaign(req, res, next) {
   }
 }
 
+// POST /api/campaigns/:id/send
+async function sendCampaign(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
+    }
+
+    const result = await emailService.sendBulkCampaignQueue(campaignId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Campaign dispatch finished. Processed ${result.totalProcessed} recipient(s).`,
+      summary: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/campaigns/:id/recipients
+async function addRecipients(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+    const { employee_ids, department } = req.body;
+
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
+    }
+
+    const [[campaign]] = await pool.execute(
+      'SELECT id, status FROM Campaigns WHERE id = ?',
+      [campaignId]
+    );
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, error: 'Campaign not found.' });
+    }
+
+    if (campaign.status === 'Completed' || campaign.status === 'Running') {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot add recipients to a campaign in '${campaign.status}' status.`
+      });
+    }
+
+    let targetIds = [];
+
+    if (Array.isArray(employee_ids) && employee_ids.length > 0) {
+      targetIds = employee_ids.map((id) => parseInt(id, 10)).filter(Number.isInteger);
+    } else if (typeof department === 'string' && department.trim() !== '') {
+      const [rows] = await pool.execute(
+        'SELECT id FROM Employees WHERE department = ?',
+        [department.trim()]
+      );
+      targetIds = rows.map((r) => r.id);
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Provide either an array of employee_ids or a department name.'
+      });
+    }
+
+    if (targetIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid employees found matching the criteria.'
+      });
+    }
+
+    let insertedCount = 0;
+
+    for (const empId of targetIds) {
+      const [existing] = await pool.execute(
+        'SELECT id FROM CampaignRecipients WHERE campaign_id = ? AND employee_id = ?',
+        [campaignId, empId]
+      );
+
+      if (existing.length === 0) {
+        const token = crypto.randomBytes(32).toString('hex');
+        await pool.execute(
+          'INSERT INTO CampaignRecipients (campaign_id, employee_id, tracking_token) VALUES (?, ?, ?)',
+          [campaignId, empId, token]
+        );
+        insertedCount++;
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully assigned ${insertedCount} recipient(s) to campaign ${campaignId}.`,
+      assignedCount: insertedCount
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// GET /api/campaigns/:id/recipients
+async function getRecipients(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
+    }
+
+    const [recipients] = await pool.execute(
+      `SELECT cr.id AS recipient_id, cr.employee_id, e.name AS employee_name, 
+              e.email AS employee_email, e.department, e.risk_level,
+              cr.tracking_token, cr.sent_at
+       FROM CampaignRecipients cr
+       JOIN Employees e ON e.id = cr.employee_id
+       WHERE cr.campaign_id = ?
+       ORDER BY e.name ASC`,
+      [campaignId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: recipients.length,
+      recipients
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// DELETE /api/campaigns/:id/recipients/:recipientId
+async function removeRecipient(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+    const recipientId = parseInt(req.params.recipientId, 10);
+
+    if (Number.isNaN(campaignId) || Number.isNaN(recipientId)) {
+      return res.status(400).json({ success: false, error: 'Invalid ID parameters.' });
+    }
+
+    const [[recipient]] = await pool.execute(
+      'SELECT id, sent_at FROM CampaignRecipients WHERE id = ? AND campaign_id = ?',
+      [recipientId, campaignId]
+    );
+
+    if (!recipient) {
+      return res.status(404).json({ success: false, error: 'Recipient not found in this campaign.' });
+    }
+
+    if (recipient.sent_at !== null) {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot remove a recipient who has already been sent an email.'
+      });
+    }
+
+    await pool.execute('DELETE FROM CampaignRecipients WHERE id = ?', [recipientId]);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Recipient removed successfully.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/campaigns/:id/cancel
+async function cancelCampaign(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
+    }
+
+    const [[campaign]] = await pool.execute(
+      'SELECT id, status FROM Campaigns WHERE id = ?',
+      [campaignId]
+    );
+
+    if (!campaign) {
+      return res.status(404).json({ success: false, error: 'Campaign not found.' });
+    }
+
+    if (['Completed'].includes(campaign.status)) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot cancel a campaign that is already '${campaign.status}'.`
+      });
+    }
+
+    // Move to Completed to halt further dispatch
+    await pool.execute(
+      "UPDATE Campaigns SET status = 'Completed' WHERE id = ?",
+      [campaignId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `Campaign ${campaignId} has been successfully canceled and closed.`,
+      status: 'Completed'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// Background scheduler tick runner
+async function runScheduledCampaignsEngine() {
+  try {
+    const [scheduledCampaigns] = await pool.execute(
+      "SELECT id, name FROM Campaigns WHERE status = 'Scheduled' AND scheduled_at <= NOW()"
+    );
+
+    for (const c of scheduledCampaigns) {
+      console.log(`[Scheduler] Auto-launching scheduled campaign #${c.id} ("${c.name}")...`);
+      try {
+        await emailService.sendBulkCampaignQueue(c.id);
+        console.log(`[Scheduler] Successfully executed campaign #${c.id}.`);
+      } catch (err) {
+        console.error(`[Scheduler] Failed to dispatch campaign #${c.id}:`, err.message);
+      }
+    }
+  } catch (error) {
+    console.error('[Scheduler] Error checking scheduled campaigns:', error.message);
+  }
+}
+
 module.exports = {
   createCampaign,
   getCampaigns,
   getCampaignById,
   updateCampaign,
   deleteCampaign,
-  duplicateCampaign
+  duplicateCampaign,
+  sendCampaign,
+  addRecipients,
+  getRecipients,
+  removeRecipient,
+  cancelCampaign,
+  runScheduledCampaignsEngine
 };
