@@ -1,0 +1,3333 @@
+Here is the complete, self-contained, evaluation-ready `index.html` file containing the full presentation layer, UI views, responsive styles, Chart.js visualizations, temporal heatmap matrix, fake credential harvesting interceptor preview, Gemini AI pretext synthesis studio, and the dual Mock/Live `ApiClient` service layer.
+
+```html
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PHISH-DEFENSE // SME Phishing Simulation & Awareness Platform</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8'
+            },
+            soc: {
+              safe: '#10b981',
+              warn: '#f59e0b',
+              danger: '#f43f5e',
+              ai: '#8b5cf6'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['JetBrains Mono', 'Fira Code', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Custom Scrollbar for Dark SOC Aesthetic */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #020617;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+    
+    .glow-blue {
+      box-shadow: 0 0 15px -3px rgba(59, 130, 246, 0.25);
+    }
+    .glow-rose {
+      box-shadow: 0 0 15px -3px rgba(244, 63, 94, 0.25);
+    }
+    .glow-emerald {
+      box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.25);
+    }
+    
+    /* Subtle Grid Background for SOC Canvas */
+    .soc-grid-bg {
+      background-size: 32px 32px;
+      background-image: 
+        linear-gradient(to right, rgba(30, 41, 59, 0.3) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
+    }
+    
+    /* Code tag styling */
+    .phish-token-name {
+      background-color: rgba(59, 130, 246, 0.2);
+      color: #93c5fd;
+      border: 1px solid rgba(59, 130, 246, 0.5);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+    .phish-token-link {
+      background-color: rgba(244, 63, 94, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(244, 63, 94, 0.5);
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    /* Modal Backdrop Blur */
+    .modal-backdrop {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* Heatmap cell grid */
+    .heatmap-col-24 {
+      display: grid;
+      grid-template-columns: repeat(24, minmax(0, 1fr));
+      gap: 3px;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex flex-col soc-grid-bg selection:bg-blue-600 selection:text-white">
+
+  <!-- APP SHELL CONTAINER -->
+  <div class="flex h-screen overflow-hidden">
+
+    <!-- 1. LEFT SIDEBAR NAVIGATION -->
+    <aside class="w-64 bg-slate-950/95 border-r border-slate-800/80 flex flex-col shrink-0 z-30 select-none">
+      
+      <!-- Brand Shield Header -->
+      <div class="h-16 flex items-center gap-3 px-5 border-b border-slate-800/80 bg-slate-900/40">
+        <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 ring-1 ring-blue-400/30">
+          <i data-lucide="shield-alert" class="w-5 h-5 text-blue-100"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-1.5">
+            <span class="font-extrabold tracking-wider text-sm bg-gradient-to-r from-blue-400 via-indigo-200 to-slate-100 bg-clip-text text-transparent">PHISH-DEFENSE</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20">Admin</span>
+          </div>
+          <div class="text-[11px] text-slate-400 tracking-tight flex items-center gap-1">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Simulation Engine: Armed
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs Menu -->
+      <div class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+        <div class="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Core Command</div>
+        
+        <button onclick="switchTab('overview')" id="nav-overview" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors bg-blue-600/10 text-blue-400 border border-blue-500/30">
+          <i data-lucide="layout-dashboard" class="w-4 h-4 shrink-0"></i>
+          <span>Executive Overview</span>
+        </button>
+
+        <button onclick="switchTab('targets')" id="nav-targets" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="users" class="w-4 h-4 shrink-0"></i>
+            <span>Target Directory</span>
+          </div>
+          <span id="nav-target-count" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">14</span>
+        </button>
+
+        <button onclick="switchTab('campaigns')" id="nav-campaigns" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="send" class="w-4 h-4 shrink-0"></i>
+            <span>Campaign Studio & AI</span>
+          </div>
+          <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">AI Gen</span>
+        </button>
+
+        <button onclick="switchTab('analytics')" id="nav-analytics" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent">
+          <i data-lucide="bar-chart-3" class="w-4 h-4 shrink-0"></i>
+          <span>Security Analytics</span>
+        </button>
+
+        <div class="pt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Governance & Drills</div>
+
+        <button onclick="switchTab('training')" id="nav-training" class="nav-item w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent">
+          <div class="flex items-center gap-3">
+            <i data-lucide="graduation-cap" class="w-4 h-4 shrink-0"></i>
+            <span>Training & Sandbox</span>
+          </div>
+          <span class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Interactive</span>
+        </button>
+
+        <button onclick="switchTab('audit')" id="nav-audit" class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-300 hover:text-slate-100 hover:bg-slate-900/60 border border-transparent">
+          <i data-lucide="scroll-text" class="w-4 h-4 shrink-0"></i>
+          <span>Audit Logs</span>
+        </button>
+      </div>
+
+      <!-- Live Engine Telemetry Pill & Admin Profile -->
+      <div class="p-3 border-t border-slate-800/80 bg-slate-900/30 space-y-3">
+        <!-- Telemetry Status Card -->
+        <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px] space-y-1.5">
+          <div class="flex items-center justify-between text-slate-400">
+            <span>SOC DEFENSE POSTURE</span>
+            <span class="text-emerald-400 font-mono font-semibold">OPTIMAL</span>
+          </div>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full w-[84%] rounded-full"></div>
+          </div>
+          <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+            <span>1,420 Simulated</span>
+            <span>0 Active Breaches</span>
+          </div>
+        </div>
+
+        <!-- Admin Profile Pill -->
+        <div class="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-slate-900 transition-colors">
+          <div class="flex items-center gap-2.5">
+            <div class="relative">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white border border-slate-700">
+                SJ
+              </div>
+              <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-950"></span>
+            </div>
+            <div class="truncate max-w-[110px]">
+              <div class="text-xs font-medium text-slate-200 truncate">Sarah Jenkins</div>
+              <div class="text-[10px] text-slate-400 truncate">SecOps Lead (T3)</div>
+            </div>
+          </div>
+          <button onclick="openApiConfigModal()" title="API Gateway Config" class="text-slate-400 hover:text-slate-200 p-1.5 rounded hover:bg-slate-800 transition-colors">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 2. MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-950">
+
+      <!-- Top Header Bar -->
+      <header class="h-16 bg-slate-950/80 border-b border-slate-800/80 px-6 flex items-center justify-between shrink-0 backdrop-blur z-20">
+        <!-- Breadcrumb & Title -->
+        <div class="flex items-center gap-3">
+          <div class="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+            <span>PLATFORM</span>
+            <span>/</span>
+            <span id="breadcrumb-view" class="text-slate-200 font-medium capitalize">Executive Overview</span>
+          </div>
+          <div class="h-4 w-px bg-slate-800"></div>
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-mono bg-blue-500/10 text-blue-400 border border-blue-500/20">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping"></span>
+            SOC CONSOLE v2.4
+          </span>
+        </div>
+
+        <!-- Mode Toggle & Quick Actions -->
+        <div class="flex items-center gap-3">
+          
+          <!-- Mock / Live Mode Switcher Badge -->
+          <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-0.5 shadow-inner">
+            <button id="btn-mode-mock" onclick="toggleEngineMode('mock')" class="px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-blue-600 text-white shadow-sm flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-300"></span>
+              Mode: Mock Data
+            </button>
+            <button id="btn-mode-live" onclick="toggleEngineMode('live')" class="px-2.5 py-1 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-slate-600" id="live-indicator-dot"></span>
+              Live API
+            </button>
+          </div>
+
+          <!-- Quick Action: Trigger AI Analysis -->
+          <button onclick="triggerAiRiskAssessment()" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all glow-blue">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-purple-400"></i>
+            <span>AI Risk Audit</span>
+          </button>
+
+          <!-- Quick Action: Export PDF Report -->
+          <button onclick="exportExecutivePdf()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-all">
+            <i data-lucide="file-down" class="w-3.5 h-3.5 text-slate-400"></i>
+            <span class="hidden md:inline">Executive PDF</span>
+          </button>
+
+          <!-- Notification Bell -->
+          <div class="relative">
+            <button onclick="toggleNotificationPanel()" class="p-2 text-slate-400 hover:text-slate-200 rounded-lg hover:bg-slate-900 border border-slate-800 transition-colors relative">
+              <i data-lucide="bell" class="w-4 h-4"></i>
+              <span class="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full"></span>
+            </button>
+            <!-- Dropdown Notification Panel -->
+            <div id="notification-panel" class="hidden absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl z-50 p-3 text-xs space-y-2">
+              <div class="flex items-center justify-between pb-2 border-b border-slate-800 font-semibold text-slate-200">
+                <span>SOC Alerts & Telemetry</span>
+                <span class="text-[10px] text-blue-400 cursor-pointer" onclick="clearNotifications()">Clear All</span>
+              </div>
+              <div class="space-y-1.5 max-h-56 overflow-y-auto" id="notification-list">
+                <div class="p-2 rounded bg-slate-950/60 border border-slate-800/80 flex items-start gap-2">
+                  <span class="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0"></span>
+                  <div>
+                    <p class="font-medium text-slate-200">Target Compromise Logged</p>
+                    <p class="text-[10px] text-slate-400">Finance employee clicked M365 credential lure.</p>
+                    <p class="text-[9px] text-slate-400 font-mono mt-0.5">2 mins ago</p>
+                  </div>
+                </div>
+                <div class="p-2 rounded bg-slate-950/60 border border-slate-800/80 flex items-start gap-2">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 mt-1 shrink-0"></span>
+                  <div>
+                    <p class="font-medium text-slate-200">Remediation Completed</p>
+                    <p class="text-[10px] text-slate-400">IT target finished 'Remedial MFA Hygiene' quiz (100%).</p>
+                    <p class="text-[9px] text-slate-400 font-mono mt-0.5">14 mins ago</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </header>
+
+      <!-- Scrollable Main View Container -->
+      <main class="flex-1 overflow-y-auto p-6 space-y-6" id="main-viewport">
+        
+        <!-- ========================================== -->
+        <!-- VIEW 1: EXECUTIVE OVERVIEW -->
+        <!-- ========================================== -->
+        <section id="view-overview" class="view-panel space-y-6">
+          
+          <!-- Banner Alert: Real-time Threat Posture -->
+          <div class="relative overflow-hidden rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900 to-slate-950 border border-blue-500/20 p-5">
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 border border-blue-500/30">University Evaluation Demo</span>
+                  <span class="text-xs text-slate-400 font-mono">SOC Health: Operational</span>
+                </div>
+                <h1 class="text-xl md:text-2xl font-bold text-slate-100">Enterprise Phishing Simulation & Defense Center</h1>
+                <p class="text-xs md:text-sm text-slate-400 max-w-2xl">
+                  Autonomous threat orchestration, credential harvesting defense, behavioral susceptibility indexing, and Gemini AI remediation for enterprise infrastructure.
+                </p>
+              </div>
+              <div class="flex items-center gap-2.5 shrink-0">
+                <button onclick="triggerAiRiskAssessment()" class="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/30 flex items-center gap-2 transition-all">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i>
+                  <span>Trigger AI Risk Assessment</span>
+                </button>
+                <button onclick="switchTab('campaigns'); openNewCampaignModal();" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-2 transition-all">
+                  <i data-lucide="crosshair" class="w-4 h-4 text-rose-400"></i>
+                  <span>Launch Drill</span>
+                </button>
+              </div>
+            </div>
+            <!-- Background Decorative Glow -->
+            <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          </div>
+
+          <!-- 4 Metric KPI Cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <!-- KPI 1: Total Targeted -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-all">
+              <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                <span>TOTAL TARGETED</span>
+                <div class="w-7 h-7 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold font-mono text-slate-100" id="kpi-targeted-count">1,420</span>
+                <span class="text-xs font-semibold text-emerald-400 flex items-center gap-0.5">
+                  <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> +8.4%
+                </span>
+              </div>
+              <div class="mt-2 text-[11px] text-slate-400">Across 6 SME departments</div>
+            </div>
+
+            <!-- KPI 2: Org Compromise Rate -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-all">
+              <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                <span>ORG COMPROMISE RATE</span>
+                <div class="w-7 h-7 rounded-lg bg-rose-500/10 text-rose-400 flex items-center justify-center">
+                  <i data-lucide="alert-triangle" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold font-mono text-rose-400" id="kpi-compromise-rate">11.8%</span>
+                <span class="text-xs font-semibold text-emerald-400 flex items-center gap-0.5" title="Decreased vulnerability">
+                  <i data-lucide="trending-down" class="w-3.5 h-3.5"></i> -4.2% (Improved)
+                </span>
+              </div>
+              <div class="mt-2 text-[11px] text-slate-400">168 cred submissions recorded</div>
+            </div>
+
+            <!-- KPI 3: Active Campaigns -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-all">
+              <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                <span>ACTIVE CAMPAIGNS</span>
+                <div class="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                  <i data-lucide="crosshair" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold font-mono text-slate-100" id="kpi-active-campaigns">3 Running</span>
+                <span class="text-xs font-semibold text-blue-400 flex items-center gap-0.5 font-mono">
+                  5 Total
+                </span>
+              </div>
+              <div class="mt-2 text-[11px] text-slate-400">Next dispatch in 4 hours</div>
+            </div>
+
+            <!-- KPI 4: Remediation Completion Rate -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-all">
+              <div class="flex items-center justify-between text-slate-400 text-xs font-medium">
+                <span>REMEDIATION RATE</span>
+                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <i data-lucide="check-circle" class="w-4 h-4"></i>
+                </div>
+              </div>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span class="text-2xl font-bold font-mono text-emerald-400" id="kpi-remediation-rate">88.5%</span>
+                <span class="text-xs font-semibold text-emerald-400 flex items-center gap-0.5">
+                  <i data-lucide="trending-up" class="w-3.5 h-3.5"></i> +14.1%
+                </span>
+              </div>
+              <div class="mt-2 text-[11px] text-slate-400">149 of 168 targets completed</div>
+            </div>
+
+          </div>
+
+          <!-- Middle Row: Attack Conversion Funnel Chart & Real-Time Incident Stream -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Funnel Chart Card (2 Columns) -->
+            <div class="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="filter" class="w-4 h-4 text-blue-400"></i>
+                    Campaign Attack Funnel Conversion Telemetry
+                  </h3>
+                  <p class="text-xs text-slate-400">Sent &rarr; Delivered &rarr; Opened &rarr; Clicked &rarr; Compromised metric tracking</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <select id="funnel-campaign-selector" onchange="updateFunnelChart(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-300 font-mono focus:outline-none focus:border-blue-500">
+                    <option value="all">Aggregate All Campaigns</option>
+                    <option value="c1">Q3 Financial Payroll Audit</option>
+                    <option value="c2">IT Helpdesk MFA Sync</option>
+                    <option value="c3">Executive Wire Pretext</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Funnel Chart Canvas Container -->
+              <div class="relative h-64 w-full">
+                <canvas id="attackFunnelChart"></canvas>
+              </div>
+
+              <!-- Funnel Step Breakdown Pills -->
+              <div class="grid grid-cols-5 gap-2 text-center pt-2 border-t border-slate-800/60 font-mono">
+                <div class="bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                  <div class="text-[10px] text-slate-400 uppercase">1. Sent</div>
+                  <div class="text-sm font-bold text-slate-200" id="funnel-step-sent">1,420</div>
+                  <div class="text-[10px] text-blue-400">100%</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                  <div class="text-[10px] text-slate-400 uppercase">2. Delivered</div>
+                  <div class="text-sm font-bold text-slate-200" id="funnel-step-deliv">1,385</div>
+                  <div class="text-[10px] text-emerald-400">97.5%</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                  <div class="text-[10px] text-slate-400 uppercase">3. Opened</div>
+                  <div class="text-sm font-bold text-amber-300" id="funnel-step-opened">984</div>
+                  <div class="text-[10px] text-amber-400">69.3%</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded border border-slate-800/80">
+                  <div class="text-[10px] text-slate-400 uppercase">4. Clicked</div>
+                  <div class="text-sm font-bold text-rose-400" id="funnel-step-clicked">382</div>
+                  <div class="text-[10px] text-rose-400">26.9%</div>
+                </div>
+                <div class="bg-slate-950/60 p-2 rounded border border-slate-800/80 bg-rose-950/10 border-rose-500/30">
+                  <div class="text-[10px] text-rose-300 uppercase">5. Compromised</div>
+                  <div class="text-sm font-bold text-rose-400" id="funnel-step-comp">168</div>
+                  <div class="text-[10px] text-rose-400 font-bold">11.8%</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Action Cards & Live Incident Feed (1 Column) -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                  <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="radio" class="w-4 h-4 text-emerald-400 animate-pulse"></i>
+                    Live Telemetry Feed
+                  </h3>
+                  <span class="text-[10px] font-mono text-slate-400">REALTIME</span>
+                </div>
+
+                <!-- Event Feed List -->
+                <div class="mt-3 space-y-2.5 max-h-56 overflow-y-auto pr-1" id="live-telemetry-feed">
+                  <!-- Event Items injected via JS -->
+                </div>
+              </div>
+
+              <!-- Quick Launch Actions Box -->
+              <div class="pt-3 border-t border-slate-800/80 space-y-2">
+                <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Quick Operations</div>
+                <div class="grid grid-cols-2 gap-2">
+                  <button onclick="triggerAiRiskAssessment()" class="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition-colors group">
+                    <div class="flex items-center gap-1.5 text-purple-400 text-xs font-semibold">
+                      <i data-lucide="sparkles" class="w-3.5 h-3.5 group-hover:rotate-12 transition-transform"></i>
+                      <span>AI Threat Scan</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-1">Audit high-risk repeat offenders</div>
+                  </button>
+                  <button onclick="exportExecutivePdf()" class="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-left transition-colors group">
+                    <div class="flex items-center gap-1.5 text-blue-400 text-xs font-semibold">
+                      <i data-lucide="download" class="w-3.5 h-3.5 group-hover:-translate-y-0.5 transition-transform"></i>
+                      <span>Executive PDF</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400 mt-1">Ready for board presentation</div>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: TARGET DIRECTORY (EMPLOYEES) -->
+        <!-- ========================================== -->
+        <section id="view-targets" class="view-panel hidden space-y-5">
+          
+          <!-- Header Bar with Add Target & CSV Ingestion -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+            <div>
+              <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <i data-lucide="users" class="w-5 h-5 text-blue-400"></i>
+                Target Employee Roster
+              </h2>
+              <p class="text-xs text-slate-400">Manage organizational directory, monitor risk scores, and ingest CSV batches.</p>
+            </div>
+            <div class="flex items-center gap-2.5 shrink-0">
+              <button onclick="openAddTargetModal()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/20">
+                <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+                <span>Add Single Target</span>
+              </button>
+              <button onclick="openCsvModal()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <i data-lucide="upload-cloud" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>Bulk CSV Ingestion</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Filter Toolbar -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+            <!-- Search Input -->
+            <div class="relative">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="target-search-input" oninput="filterTargets()" placeholder="Search name or work email..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-mono">
+            </div>
+
+            <!-- Department Filter -->
+            <div>
+              <select id="target-dept-filter" onchange="filterTargets()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+                <option value="ALL">All Departments (6 Active)</option>
+                <option value="IT">IT & Infrastructure</option>
+                <option value="Finance">Finance & Accounting</option>
+                <option value="HR">Human Resources</option>
+                <option value="Marketing">Marketing & Sales</option>
+                <option value="Engineering">Software Engineering</option>
+                <option value="General">General Staff</option>
+                <option value="Executive">Executive Leadership</option>
+              </select>
+            </div>
+
+            <!-- Risk Level Filter -->
+            <div>
+              <select id="target-risk-filter" onchange="filterTargets()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+                <option value="ALL">All Risk Levels</option>
+                <option value="High">High Risk (Compromise Prone)</option>
+                <option value="Medium">Medium Risk (Baseline)</option>
+                <option value="Low">Low Risk (Remediated)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Targets Roster Table -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono tracking-wider border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4 w-10">
+                      <input type="checkbox" id="select-all-targets" onchange="toggleSelectAllTargets(this.checked)" class="rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0">
+                    </th>
+                    <th class="py-3 px-4">Target Employee</th>
+                    <th class="py-3 px-4">Department</th>
+                    <th class="py-3 px-4">Risk Level & Score</th>
+                    <th class="py-3 px-4">Drill Telemetry</th>
+                    <th class="py-3 px-4">Last Activity</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="targets-table-body" class="divide-y divide-slate-800/60 font-sans">
+                  <!-- Rows injected via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Pagination Bar -->
+            <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div class="flex items-center gap-2">
+                <span>Showing <span id="pag-start" class="font-mono text-slate-200">1</span>-<span id="pag-end" class="font-mono text-slate-200">10</span> of <span id="pag-total" class="font-mono text-slate-200">14</span> enrolled targets</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button onclick="changePage(-1)" id="btn-prev-page" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+                <span class="px-2 py-1 font-mono text-slate-300">Page <span id="current-page">1</span></span>
+                <button onclick="changePage(1)" id="btn-next-page" class="px-2.5 py-1 rounded bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: CAMPAIGN STUDIO & AI GENERATOR -->
+        <!-- ========================================== -->
+        <section id="view-campaigns" class="view-panel hidden space-y-6">
+          
+          <!-- Campaign Studio Header & Quick Launch -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+            <div>
+              <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <i data-lucide="crosshair" class="w-5 h-5 text-rose-500"></i>
+                Campaign Studio & Autonomous Threat Simulation
+              </h2>
+              <p class="text-xs text-slate-400">Design spear phishing drills, orchestrate scheduling, and generate targeted lures via Gemini AI.</p>
+            </div>
+            <div class="flex items-center gap-2.5 shrink-0">
+              <button onclick="openGeminiModal()" class="px-3.5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-2 transition-all shadow-md shadow-purple-600/30">
+                <i data-lucide="sparkles" class="w-4 h-4 text-purple-200"></i>
+                <span>Gemini AI Generator</span>
+              </button>
+              <button onclick="openNewCampaignModal()" class="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-blue-600/20">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>New Campaign Wizard</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Campaigns Table -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="p-4 border-b border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-bold text-slate-200">Active & Historic Simulation Campaigns</h3>
+                <span class="text-xs text-slate-400 font-mono" id="campaign-count-badge">5 Campaigns</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="refreshCampaignList()" class="p-1.5 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-200" title="Refresh">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono tracking-wider border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4">Campaign Title & Theme</th>
+                    <th class="py-3 px-4">Target Scope</th>
+                    <th class="py-3 px-4">Status</th>
+                    <th class="py-3 px-4">Funnel Performance</th>
+                    <th class="py-3 px-4">Scheduled / Launched</th>
+                    <th class="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="campaigns-table-body" class="divide-y divide-slate-800/60 font-sans">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Featured Pre-Crafted Pretexts & AI Lure Templates -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                <i data-lucide="file-code-2" class="w-4 h-4 text-purple-400"></i>
+                Pre-Built Adversary Pretext Library
+              </h3>
+              <span class="text-xs text-slate-400">Select any template to inspect or customize in Gemini Studio</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="template-cards-grid">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 4: SECURITY ANALYTICS & DEEP VIZ -->
+        <!-- ========================================== -->
+        <section id="view-analytics" class="view-panel hidden space-y-6">
+          
+          <!-- Analytics Header with Export Triggers -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+            <div>
+              <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <i data-lucide="bar-chart-3" class="w-5 h-5 text-blue-400"></i>
+                Behavioral Telemetry & Vulnerability Analytics
+              </h2>
+              <p class="text-xs text-slate-400">Temporal behavioral heatmaps, department susceptibility matrices, and bi-campaign delta audits.</p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="downloadAnalyticsCsv()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-400"></i>
+                <span>Export CSV Dataset</span>
+              </button>
+              <button onclick="exportExecutivePdf()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-100"></i>
+                <span>Generate PDF Summary</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- SECTION 1: TEMPORAL HEATMAP (7 Days x 24 Hours) -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+                  Temporal Vulnerability Heatmap (7-Day x 24-Hour Event Distribution)
+                </h3>
+                <p class="text-xs text-slate-400">Frequency distribution of open, click, and credential loss events mapped across hourly increments.</p>
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="text-slate-400 font-mono text-[10px]">INTENSITY:</span>
+                <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><span class="w-2.5 h-2.5 rounded bg-slate-950 border border-slate-800"></span> None</span>
+                <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><span class="w-2.5 h-2.5 rounded bg-blue-900/80"></span> Low</span>
+                <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><span class="w-2.5 h-2.5 rounded bg-amber-600/80"></span> Moderate</span>
+                <span class="inline-flex items-center gap-1 text-[10px] text-slate-400"><span class="w-2.5 h-2.5 rounded bg-rose-600"></span> High Risk</span>
+              </div>
+            </div>
+
+            <!-- Heatmap Interactive Grid -->
+            <div class="overflow-x-auto pb-2">
+              <div class="min-w-[700px]">
+                <!-- Hourly Header 00 to 23 -->
+                <div class="grid grid-cols-25 gap-1 text-[10px] text-slate-400 font-mono text-center mb-1">
+                  <div class="col-span-1 text-left font-bold text-slate-400">Day</div>
+                  <div class="hour-header-row col-span-24 heatmap-col-24 text-[9px]"></div>
+                </div>
+                <!-- Heatmap Rows for Mon-Sun -->
+                <div id="heatmap-grid-body" class="space-y-1">
+                  <!-- Rows injected via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Heatmap Tooltip Details Bar -->
+            <div id="heatmap-hover-detail" class="text-xs text-slate-400 bg-slate-950 p-2.5 rounded-lg border border-slate-800/80 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i data-lucide="info" class="w-4 h-4 text-blue-400"></i>
+                <span id="heatmap-status-text">Hover over any hourly matrix cell to inspect specific incident telemetry.</span>
+              </div>
+              <span class="text-[11px] font-mono text-amber-400">Peak Exposure: Tuesday & Thursday (10:00 - 15:00)</span>
+            </div>
+          </div>
+
+          <!-- SECTION 2: DEPARTMENT VULNERABILITY MATRIX (Chart.js) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            
+            <!-- Department Chart -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
+              <div class="border-b border-slate-800/80 pb-3">
+                <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                  <i data-lucide="network" class="w-4 h-4 text-emerald-400"></i>
+                  Department Vulnerability Matrix
+                </h3>
+                <p class="text-xs text-slate-400">Comparative Click Rate (%) vs. Compromise Rate (%) per operational unit</p>
+              </div>
+              <div class="relative h-64 w-full">
+                <canvas id="deptVulnerabilityChart"></canvas>
+              </div>
+            </div>
+
+            <!-- SECTION 3: BI-CAMPAIGN HEAD-TO-HEAD COMPARISON -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
+              <div>
+                <div class="border-b border-slate-800/80 pb-3">
+                  <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <i data-lucide="git-compare" class="w-4 h-4 text-indigo-400"></i>
+                    Bi-Campaign Head-to-Head Comparative Delta
+                  </h3>
+                  <p class="text-xs text-slate-400">Benchmark efficacy gains or regression across two selected drills</p>
+                </div>
+
+                <!-- Selectors -->
+                <div class="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <label class="block text-[11px] font-mono uppercase text-slate-400 mb-1">Campaign A (Baseline)</label>
+                    <select id="compare-camp-a" onchange="runCampaignComparison()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+                      <!-- Injected via JS -->
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-[11px] font-mono uppercase text-slate-400 mb-1">Campaign B (Evaluation)</label>
+                    <select id="compare-camp-b" onchange="runCampaignComparison()" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:outline-none focus:border-blue-500 font-mono">
+                      <!-- Injected via JS -->
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Comparative Delta Table -->
+                <div class="mt-4 overflow-x-auto">
+                  <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                      <tr>
+                        <th class="py-2 px-3">Metric</th>
+                        <th class="py-2 px-3">Camp A</th>
+                        <th class="py-2 px-3">Camp B</th>
+                        <th class="py-2 px-3 text-right">Variance / Delta</th>
+                      </tr>
+                    </thead>
+                    <tbody id="comparison-table-body" class="divide-y divide-slate-800/60 font-mono">
+                      <!-- Injected via JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Recommendation Footer -->
+              <div class="p-3 bg-blue-950/20 border border-blue-500/20 rounded-lg text-xs text-blue-300 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 shrink-0 text-blue-400"></i>
+                <span id="comparison-insight-text">Comparing campaigns reveals significant vulnerability reduction following targeted MFA training.</span>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 5: TRAINING MODULES & LIVE SANDBOX -->
+        <!-- ========================================== -->
+        <section id="view-training" class="view-panel hidden space-y-6">
+          
+          <!-- Training Header -->
+          <div class="bg-slate-900/90 border border-slate-800 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-400"></i>
+                Awareness Curriculum & Interactive Phishing Interceptor Sandbox
+              </h2>
+              <p class="text-xs text-slate-400">Assigned remedial training modules and real-time interactive credential interceptor simulation.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="assignAllHighRiskTraining()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <i data-lucide="user-check" class="w-3.5 h-3.5"></i>
+                <span>Auto-Assign High Risk Targets (6)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Remedial Training Modules Grid -->
+          <div class="space-y-3">
+            <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+              <i data-lucide="book-open" class="w-4 h-4 text-blue-400"></i>
+              Active Remediation Modules
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="training-modules-grid">
+              <!-- Injected via JS -->
+            </div>
+          </div>
+
+          <!-- INTERACTIVE PHISHING INTERCEPTOR PREVIEW (MANDATORY REQUIREMENT) -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+            <!-- Sandbox Header Bar -->
+            <div class="p-4 bg-slate-950 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-0.5">
+                <div class="flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                  <span class="text-xs font-bold uppercase tracking-wider text-rose-400 font-mono">Live Interceptor Simulation Drill</span>
+                </div>
+                <p class="text-xs text-slate-400">What a targeted SME employee sees when clicking a simulated tracking link.</p>
+              </div>
+
+              <!-- Portal Switcher Switch -->
+              <div class="flex items-center gap-2 bg-slate-900 border border-slate-800 p-1 rounded-lg">
+                <span class="text-[11px] font-mono text-slate-400 px-2">PORTAL THEME:</span>
+                <button id="btn-theme-m365" onclick="switchLoginPortalTheme('m365')" class="px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition-all">
+                  Microsoft 365
+                </button>
+                <button id="btn-theme-google" onclick="switchLoginPortalTheme('google')" class="px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 transition-all">
+                  Google Workspace
+                </button>
+              </div>
+            </div>
+
+            <!-- Interceptor Simulated Browser Bar -->
+            <div class="px-4 py-2 bg-slate-950/80 border-b border-slate-800 flex items-center gap-3 text-xs text-slate-400 font-mono">
+              <div class="flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+              </div>
+              <div class="flex-1 bg-slate-900 px-3 py-1 rounded border border-slate-800 flex items-center justify-between text-[11px]">
+                <div class="flex items-center gap-2 truncate">
+                  <i data-lucide="lock" class="w-3 h-3 text-amber-400"></i>
+                  <span id="fake-browser-url" class="text-slate-300">https://login.microsoft-sso-auth-portal.com/common/oauth2/v2.0/authorize</span>
+                </div>
+                <span class="text-[10px] text-rose-400 font-bold bg-rose-500/10 px-1.5 rounded border border-rose-500/30">SIMULATED PHISHING DOMAIN</span>
+              </div>
+              <button onclick="resetInterceptorDemo()" class="text-slate-400 hover:text-slate-200" title="Reset Demo">
+                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <!-- Interactive Login Portal Stage Area -->
+            <div class="p-8 sm:p-12 bg-slate-950 flex flex-col items-center justify-center relative min-h-[460px]">
+              
+              <!-- Real-time Red Alert Educational Interception Banner (Triggered when typing password) -->
+              <div id="interceptor-alert-banner" class="hidden mb-6 w-full max-w-md p-4 rounded-xl bg-rose-950/80 border-2 border-rose-500 shadow-2xl shadow-rose-950/50 glow-rose animate-bounce">
+                <div class="flex items-start gap-3">
+                  <div class="p-2 rounded-lg bg-rose-500/20 text-rose-400 shrink-0">
+                    <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-rose-200 uppercase tracking-wider">&empty; Phishing Simulation Drill Intercepted</h4>
+                    <p class="text-xs text-rose-300 mt-1 leading-relaxed">
+                      <strong>Your credentials were not saved.</strong> Your failure has been recorded and remedial training assigned.
+                    </p>
+                    <div class="mt-3 pt-2 border-t border-rose-500/40 text-[11px] text-slate-200 space-y-1">
+                      <div class="font-bold text-amber-300">Deceptive Indicators in this Exercise:</div>
+                      <div>&bull; Lookalike spoofed domain (<span class="font-mono text-rose-300">microsoft-sso-auth-portal.com</span>)</div>
+                      <div>&bull; Missing corporate Single Sign-On (SSO) certificate context</div>
+                      <div>&bull; Unsolicited password challenge following an urgent security notice</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- FAKE LOGIN CARD CONTAINER -->
+              <div id="fake-login-card" class="w-full max-w-sm bg-slate-900 border border-slate-700/80 rounded-2xl p-6 sm:p-8 shadow-2xl transition-all">
+                
+                <!-- Microsoft 365 Fake Portal Layout -->
+                <div id="portal-content-m365" class="space-y-5">
+                  <div class="flex items-center gap-2">
+                    <div class="grid grid-cols-2 gap-0.5 w-5 h-5">
+                      <div class="bg-rose-500 w-2 h-2"></div>
+                      <div class="bg-emerald-500 w-2 h-2"></div>
+                      <div class="bg-blue-500 w-2 h-2"></div>
+                      <div class="bg-amber-500 w-2 h-2"></div>
+                    </div>
+                    <span class="text-sm font-semibold tracking-tight text-slate-100">Microsoft</span>
+                  </div>
+                  
+                  <div>
+                    <h3 class="text-lg font-bold text-slate-100">Sign in</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">to continue to SME Enterprise OneDrive</p>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="text-xs text-slate-300 font-mono bg-slate-950 p-2 rounded border border-slate-800 flex items-center justify-between">
+                      <span id="fake-target-email">alex.rivera@sme-defense.local</span>
+                      <i data-lucide="check" class="w-3.5 h-3.5 text-blue-400"></i>
+                    </div>
+
+                    <div>
+                      <input type="password" id="fake-m365-password" oninput="handleFakeCredentialInput(this.value)" placeholder="Enter password" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-mono">
+                      <div class="text-[10px] text-slate-400 mt-1">Typing here safely demonstrates the awareness drill.</div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs text-blue-400">
+                      <label class="flex items-center gap-1.5 cursor-pointer text-slate-400">
+                        <input type="checkbox" checked class="rounded bg-slate-950 border-slate-700 text-blue-500">
+                        <span>Keep me signed in</span>
+                      </label>
+                      <a href="#" class="hover:underline" onclick="event.preventDefault()">Forgot password?</a>
+                    </div>
+
+                    <button onclick="handleFakeSignInClick()" class="w-full py-2 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30">
+                      <span>Sign in</span>
+                      <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Google Workspace Fake Portal Layout -->
+                <div id="portal-content-google" class="space-y-5 hidden">
+                  <div class="flex flex-col items-center text-center space-y-1">
+                    <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow">
+                      <span class="font-extrabold text-blue-600 text-lg">G</span>
+                    </div>
+                    <h3 class="text-base font-bold text-slate-100">Sign in with Google</h3>
+                    <p class="text-xs text-slate-400">to continue to University Cloud Docs</p>
+                  </div>
+
+                  <div class="space-y-3">
+                    <div class="text-xs text-slate-300 font-mono bg-slate-950 p-2 rounded-lg border border-slate-800 flex items-center gap-2">
+                      <div class="w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] flex items-center justify-center font-bold">A</div>
+                      <span class="truncate">alex.rivera@sme-defense.local</span>
+                    </div>
+
+                    <div>
+                      <input type="password" id="fake-google-password" oninput="handleFakeCredentialInput(this.value)" placeholder="Enter your password" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-mono">
+                      <div class="text-[10px] text-slate-400 mt-1">Interactivity demo: type anything to trigger drill.</div>
+                    </div>
+
+                    <div class="flex items-center justify-between text-xs">
+                      <label class="flex items-center gap-1.5 text-slate-400 cursor-pointer">
+                        <input type="checkbox" class="rounded bg-slate-950 border-slate-700 text-blue-500">
+                        <span>Show password</span>
+                      </label>
+                      <a href="#" class="text-blue-400 hover:underline" onclick="event.preventDefault()">Forgot password?</a>
+                    </div>
+
+                    <button onclick="handleFakeSignInClick()" class="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-md shadow-blue-600/30">
+                      <span>Next</span>
+                      <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ========================================== -->
+        <!-- VIEW 6: AUDIT LOGS & SYSTEM GOVERNANCE -->
+        <!-- ========================================== -->
+        <section id="view-audit" class="view-panel hidden space-y-5">
+          
+          <!-- Audit Logs Header -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-900/90 border border-slate-800 p-4 rounded-xl">
+            <div>
+              <h2 class="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <i data-lucide="scroll-text" class="w-5 h-5 text-indigo-400"></i>
+                Immutable System Governance & Audit Log Stream
+              </h2>
+              <p class="text-xs text-slate-400">Cryptographically verifiable SOC ledger tracking administrative events, campaign dispatches, and mutations.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="exportAuditLogsJson()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <i data-lucide="download" class="w-3.5 h-3.5 text-blue-400"></i>
+                <span>Export Audit JSON</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Audit Filters -->
+          <div class="flex flex-col sm:flex-row items-center gap-3 bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+            <div class="relative flex-1 w-full">
+              <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+              <input type="text" id="audit-search-input" oninput="filterAuditLogs()" placeholder="Search action, user, or IP address..." class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-mono">
+            </div>
+            <div class="w-full sm:w-56">
+              <select id="audit-action-filter" onchange="filterAuditLogs()" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+                <option value="ALL">All Event Types</option>
+                <option value="CAMPAIGN_DISPATCH">Campaign Dispatches</option>
+                <option value="CSV_IMPORT">Bulk Ingestions</option>
+                <option value="AI_GENERATE">AI Lure Generation</option>
+                <option value="AUTH_LOGIN">Authentication</option>
+                <option value="TARGET_MUTATION">Target Directory Updates</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Audit Log Table -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs">
+                <thead class="bg-slate-950/80 text-slate-400 uppercase font-mono tracking-wider border-b border-slate-800 text-[11px]">
+                  <tr>
+                    <th class="py-3 px-4">Timestamp (UTC)</th>
+                    <th class="py-3 px-4">Admin Principal</th>
+                    <th class="py-3 px-4">Action Type</th>
+                    <th class="py-3 px-4">Target Resource</th>
+                    <th class="py-3 px-4">Client IP</th>
+                    <th class="py-3 px-4">Integrity Status</th>
+                    <th class="py-3 px-4 text-right">Details</th>
+                  </tr>
+                </thead>
+                <tbody id="audit-table-body" class="divide-y divide-slate-800/60 font-mono text-[11px]">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODALS CONTAINER -->
+  <!-- ========================================== -->
+
+  <!-- MODAL 1: ADD SINGLE TARGET -->
+  <div id="modal-add-target" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-4 h-4 text-blue-400"></i>
+          Enroll Single Simulation Target
+        </h3>
+        <button onclick="closeModal('modal-add-target')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-add-target" onsubmit="submitAddTarget(event)" class="p-5 space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Full Name</label>
+          <input type="text" id="target-name" required placeholder="e.g. Jordan Vance" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Corporate Email Address</label>
+          <input type="email" id="target-email" required placeholder="e.g. j.vance@sme-defense.local" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-mono">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Department</label>
+            <select id="target-dept" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="IT">IT</option>
+              <option value="Finance">Finance</option>
+              <option value="HR">HR</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Engineering">Engineering</option>
+              <option value="Executive">Executive</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Initial Risk Score</label>
+            <select id="target-risk" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="Medium">Medium (Baseline)</option>
+              <option value="High">High (High Risk)</option>
+              <option value="Low">Low (Trained)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-add-target')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors flex items-center gap-1.5 shadow-md shadow-blue-600/20">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Add Target</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 2: BULK CSV INGESTION -->
+  <div id="modal-csv-upload" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i>
+          Bulk CSV Target Ingestion
+        </h3>
+        <button onclick="closeModal('modal-csv-upload')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4 text-xs">
+        <!-- Parsing Rules Notice -->
+        <div class="p-3 bg-blue-950/30 border border-blue-500/30 rounded-lg text-slate-300 space-y-1">
+          <div class="font-semibold text-blue-400 flex items-center gap-1.5">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            <span>Required CSV Schema</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Expected columns header: <span class="font-mono text-slate-200">name, email, department</span>. Extra columns are safely skipped.</p>
+        </div>
+
+        <!-- Drag & Drop Zone -->
+        <div id="csv-drop-zone" onclick="document.getElementById('csv-file-input').click()" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-6 text-center cursor-pointer transition-colors bg-slate-950/50 space-y-2">
+          <input type="file" id="csv-file-input" accept=".csv,text/csv" onchange="handleCsvFileSelected(event)" class="hidden">
+          <div class="w-10 h-10 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto">
+            <i data-lucide="file-up" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <span class="text-slate-200 font-medium">Click to browse or drop CSV target file</span>
+            <div class="text-[10px] text-slate-400 mt-0.5">Supports UTF-8 comma-separated files up to 10MB</div>
+          </div>
+        </div>
+
+        <!-- Sample Paste Area & Button -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between text-slate-400">
+            <span>Or paste raw CSV records:</span>
+            <button type="button" onclick="loadSampleCsvText()" class="text-blue-400 hover:underline text-[11px]">Load Sample Batch (5 rows)</button>
+          </div>
+          <textarea id="csv-raw-textarea" rows="4" placeholder="name, email, department
+David Zhang, d.zhang@sme-defense.local, Engineering
+Emma Watson, e.watson@sme-defense.local, Finance" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-blue-500"></textarea>
+        </div>
+
+        <!-- Simulated Ingestion Progress Bar -->
+        <div id="csv-progress-container" class="hidden space-y-1.5 pt-2">
+          <div class="flex justify-between text-[11px] font-mono text-slate-300">
+            <span id="csv-progress-label">Validating target schema...</span>
+            <span id="csv-progress-percent">0%</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+            <div id="csv-progress-bar" class="bg-blue-600 h-full w-0 transition-all duration-200 rounded-full"></div>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-csv-upload')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">Cancel</button>
+          <button type="button" id="btn-process-csv" onclick="processCsvIngestion()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors flex items-center gap-1.5 shadow-md shadow-blue-600/20">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Ingest Targets</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: GEMINI AI EMAIL GENERATOR -->
+  <div id="modal-gemini-generator" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-950/50">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-gradient-to-tr from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-purple-600/30">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-slate-100">Gemini Adversary Pretext Synthesis Engine</h3>
+            <p class="text-[10px] text-slate-400">Generates hyper-realistic, context-tailored phishing lures with injected tracking tokens.</p>
+          </div>
+        </div>
+        <button onclick="closeModal('modal-gemini-generator')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Body: Split Controls & Live Preview -->
+      <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-800 flex-1 overflow-y-auto">
+        
+        <!-- Controls Column -->
+        <div class="p-5 space-y-4 text-xs">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Pretext Scenario</label>
+            <div class="grid grid-cols-2 gap-1.5 mb-2">
+              <button type="button" onclick="setPresetScenario('Urgent Payroll Direct Deposit Update')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-left text-slate-300 truncate">&bull; Payroll Deposit</button>
+              <button type="button" onclick="setPresetScenario('IT MFA Re-authentication Required')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-left text-slate-300 truncate">&bull; IT MFA Sync</button>
+              <button type="button" onclick="setPresetScenario('Shared OneDrive Document: Confidential Q3 Bonus')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-left text-slate-300 truncate">&bull; OneDrive Bonus</button>
+              <button type="button" onclick="setPresetScenario('C-Suite Emergency Wire Authorization')" class="p-1.5 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-[11px] text-left text-slate-300 truncate">&bull; Wire Transfer</button>
+            </div>
+            <input type="text" id="ai-scenario-input" value="Urgent Payroll Direct Deposit Update" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-purple-500 font-mono text-xs">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Target Department</label>
+              <select id="ai-department-select" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-purple-500">
+                <option value="Finance">Finance</option>
+                <option value="HR">HR</option>
+                <option value="IT">IT</option>
+                <option value="Marketing">Marketing</option>
+                <option value="Engineering">Engineering</option>
+                <option value="General">All Organization</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-slate-300 font-medium mb-1">Urgency Level</label>
+              <select id="ai-urgency-select" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-purple-500">
+                <option value="High">High (Immediate Action)</option>
+                <option value="Medium">Medium (Business Hours)</option>
+                <option value="Low">Low (Informational)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Psychological Tone</label>
+            <select id="ai-tone-select" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-purple-500">
+              <option value="Authoritative">Authoritative & Corporate</option>
+              <option value="Alarming">Alarming & Coercive</option>
+              <option value="Casual">Casual Internal Colleague</option>
+              <option value="Technical">Technical Support Directive</option>
+            </select>
+          </div>
+
+          <button type="button" id="btn-run-gemini" onclick="generateAiEmail()" class="w-full py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Generate with Gemini</span>
+          </button>
+
+          <!-- Skeleton Loader -->
+          <div id="ai-loading-skeleton" class="hidden space-y-2 pt-2 animate-pulse">
+            <div class="h-3 bg-purple-950/60 rounded border border-purple-500/20 w-3/4"></div>
+            <div class="h-3 bg-slate-800 rounded w-full"></div>
+            <div class="h-3 bg-slate-800 rounded w-5/6"></div>
+            <div class="text-[10px] text-purple-400 font-mono flex items-center gap-1.5 mt-2">
+              <span class="w-2 h-2 rounded-full bg-purple-400 animate-ping"></span>
+              Synthesizing deception parameters & injecting tracking tokens...
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Preview Column -->
+        <div class="p-5 flex flex-col justify-between space-y-4 bg-slate-950/40">
+          <div>
+            <div class="flex items-center justify-between pb-2 border-b border-slate-800">
+              <span class="text-xs font-mono uppercase text-slate-400 font-bold">Lure Preview & Token Check</span>
+              <span class="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">Tokens Active</span>
+            </div>
+
+            <div class="mt-3 space-y-2">
+              <div>
+                <span class="text-[10px] uppercase font-mono text-slate-400">Subject Line:</span>
+                <div id="ai-preview-subject" class="font-semibold text-slate-100 text-xs bg-slate-950 p-2 rounded border border-slate-800">
+                  ACTION REQUIRED: Immediate verification of payroll routing instructions
+                </div>
+              </div>
+
+              <div>
+                <span class="text-[10px] uppercase font-mono text-slate-400">Email Body (Rendered HTML):</span>
+                <div id="ai-preview-body" class="mt-1 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed font-sans space-y-2 max-h-56 overflow-y-auto">
+                  <p>Dear <span class="phish-token-name">{{name}}</span>,</p>
+                  <p>Our automated payroll gateway detected an invalid routing signature during the pre-clearance cycle for this pay period. Failure to confirm your profile will result in withholding.</p>
+                  <p>Please review and confirm your deposit details immediately:</p>
+                  <p class="py-1">
+                    <span class="phish-token-link">{{tracking_link}}</span>
+                  </p>
+                  <p class="text-[11px] text-slate-400">SME Enterprise Payroll Services & HR Administration</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Token Explainer & Accept Action -->
+          <div class="space-y-3 pt-3 border-t border-slate-800">
+            <div class="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+              <span class="w-2 h-2 rounded-full bg-blue-400"></span> <span>Target placeholder: <code class="text-blue-300">{{name}}</code></span>
+              <span class="w-2 h-2 rounded-full bg-rose-400 ml-2"></span> <span>Sim tracker: <code class="text-rose-300">{{tracking_link}}</code></span>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+              <button onclick="closeModal('modal-gemini-generator')" class="px-3.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Dismiss</button>
+              <button onclick="acceptAiTemplateToCampaign()" class="px-4 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-purple-600/30">
+                <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+                <span>Accept & Attach to Campaign</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: NEW CAMPAIGN WIZARD -->
+  <div id="modal-new-campaign" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4 text-blue-400"></i>
+          Create Simulation Campaign
+        </h3>
+        <button onclick="closeModal('modal-new-campaign')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="form-new-campaign" onsubmit="submitNewCampaign(event)" class="p-5 space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Campaign Title</label>
+          <input type="text" id="wiz-camp-name" required placeholder="e.g. Q4 Mandatory Security Drill" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Target Department Scope</label>
+            <select id="wiz-camp-dept" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="All Departments">All Departments (14 Targets)</option>
+              <option value="IT">IT & Infrastructure</option>
+              <option value="Finance">Finance & Accounting</option>
+              <option value="HR">Human Resources</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Engineering">Engineering</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Dispatch Schedule</label>
+            <select id="wiz-camp-schedule" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="Immediate">Immediate Dispatch</option>
+              <option value="Scheduled">Scheduled (Tomorrow 09:00)</option>
+              <option value="Draft">Save as Draft</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Pretext Lure Template</label>
+          <select id="wiz-camp-template" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-blue-500">
+            <option value="t1">IT Helpdesk: MFA Token Resynchronization Required</option>
+            <option value="t2">Payroll: Urgent Direct Deposit Verification</option>
+            <option value="t3">OneDrive: Confidential Shared Performance Bonus Document</option>
+            <option value="t4">C-Suite: Urgent Vendor Wire Transfer Review</option>
+          </select>
+        </div>
+
+        <div class="p-3 bg-amber-950/20 border border-amber-500/20 rounded-lg text-[11px] text-amber-300 flex items-start gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-amber-400 mt-0.5"></i>
+          <span>Campaign dispatches generate tracked simulated links with automatic credential harvesting protection.</span>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-new-campaign')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">Cancel</button>
+          <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-colors flex items-center gap-1.5 shadow-md shadow-blue-600/20">
+            <i data-lucide="send" class="w-3.5 h-3.5"></i>
+            <span>Create & Orchestrate</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL 5: AI RISK ANALYSIS EXECUTIVE BRIEFING -->
+  <div id="modal-ai-risk-report" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+          </div>
+          <h3 class="text-sm font-bold text-slate-100">Gemini Autonomous SOC Risk Evaluation</h3>
+        </div>
+        <button onclick="closeModal('modal-ai-risk-report')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 text-xs overflow-y-auto max-h-[80vh]">
+        <!-- Executive Threat Summary -->
+        <div class="p-4 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-purple-300">Executive Summary</span>
+            <span class="text-[11px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">Generated Just Now</span>
+          </div>
+          <p class="text-xs text-slate-300 leading-relaxed" id="ai-risk-exec-summary">
+            Evaluating 14 organizational endpoints across 5 active simulation campaigns. Human risk posture exhibits severe susceptibility to financial pretexts, with Finance and HR demonstrating a 3.4x higher compromise rate compared to Engineering and IT. Immediate MFA reinforcement required.
+          </p>
+        </div>
+
+        <!-- High Risk Repeat Offenders -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5">
+            <i data-lucide="user-x" class="w-3.5 h-3.5"></i>
+            <span>High-Risk Repeat Offenders Detected</span>
+          </h4>
+          <div class="space-y-2" id="ai-risk-offenders-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- Remediation Roadmap -->
+        <div>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-2 flex items-center gap-1.5">
+            <i data-lucide="check-shield" class="w-3.5 h-3.5"></i>
+            <span>Autonomous Remediation Assignment</span>
+          </h4>
+          <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2 text-slate-300">
+            <div class="flex items-center justify-between text-[11px]">
+              <span>Recommended Action:</span>
+              <span class="font-bold text-emerald-400 font-mono">Mandatory Micro-Training</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Trigger mandatory 8-minute 'Credential Harvesting Red Flags' module to all 6 high-risk employees.</p>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 flex items-center justify-end gap-2">
+          <button onclick="closeModal('modal-ai-risk-report')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Close</button>
+          <button onclick="assignAllHighRiskTraining(); closeModal('modal-ai-risk-report');" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Deploy Remediation Curriculum</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: AUDIT JSON VIEWER -->
+  <div id="modal-audit-json" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="code" class="w-4 h-4 text-blue-400"></i>
+          Audit Record Mutation Payload (JSON)
+        </h3>
+        <button onclick="closeModal('modal-audit-json')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-5 space-y-3">
+        <div class="flex items-center justify-between text-xs text-slate-400 font-mono">
+          <span>EVENT HASH: <span id="audit-json-hash" class="text-blue-400">0x8f2a...c419</span></span>
+          <button onclick="copyAuditJson()" class="text-slate-400 hover:text-slate-200 flex items-center gap-1 text-[11px]">
+            <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copy
+          </button>
+        </div>
+        <pre id="audit-json-viewer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-80 select-all"></pre>
+        <div class="text-right pt-2 border-t border-slate-800">
+          <button onclick="closeModal('modal-audit-json')" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 7: API GATEWAY CONFIGURATION -->
+  <div id="modal-api-config" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 modal-backdrop">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-bold text-slate-100 flex items-center gap-2">
+          <i data-lucide="settings" class="w-4 h-4 text-blue-400"></i>
+          Backend API Gateway Configuration
+        </h3>
+        <button onclick="closeModal('modal-api-config')" class="text-slate-400 hover:text-slate-200 p-1">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div class="p-5 space-y-4 text-xs">
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Localhost Backend Base URL</label>
+          <input type="text" id="api-base-url-input" value="http://localhost:5000" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:outline-none focus:border-blue-500">
+          <div class="text-[10px] text-slate-400 mt-1">Configured for your live Express/MySQL server.</div>
+        </div>
+
+        <div>
+          <label class="block text-slate-300 font-medium mb-1">Bearer JWT Token</label>
+          <input type="text" id="api-jwt-input" value="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sme-soc-eval" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-slate-100 font-mono text-xs focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div class="p-3 bg-slate-950 rounded-lg border border-slate-800 space-y-1 text-slate-400 text-[11px]">
+          <div class="text-slate-200 font-semibold">Active Mode Status:</div>
+          <div id="api-mode-status-text">Engine is operating in Mock Data mode (Zero network latency).</div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800 flex justify-end gap-2">
+          <button onclick="closeModal('modal-api-config')" class="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300">Close</button>
+          <button onclick="saveApiConfig()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold">Save Config</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT APPLICATION CORE -->
+  <!-- ========================================== -->
+  <script>
+    /**
+     * PHISH-DEFENSE SOC ENGINE & FRONTEND APPLICATION
+     * Written for semester evaluation: zero build steps, complete reactive state, mock & live API switching.
+     */
+
+    // -------------------------------------------------------------
+    // 1. COMPREHENSIVE INITIAL MOCK STATE
+    // -------------------------------------------------------------
+    window.AppMockState = {
+      isLiveMode: false,
+      apiBaseUrl: localStorage.getItem('api_base_url') || 'http://localhost:5000',
+      jwtToken: localStorage.getItem('jwt') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.sme-soc-eval',
+      
+      // Target Employees Roster
+      employees: [
+        { id: 1, name: "Marcus Vance", email: "m.vance@sme-defense.local", department: "Finance", risk_level: "High", risk_score: 88, sent: 6, failed: 3, last_action: "Clicked MFA Lure (3d ago)" },
+        { id: 2, name: "Elena Rostova", email: "e.rostova@sme-defense.local", department: "Finance", risk_level: "High", risk_score: 92, sent: 7, failed: 4, last_action: "Submitted Credentials (1d ago)" },
+        { id: 3, name: "David Chen", email: "d.chen@sme-defense.local", department: "Engineering", risk_level: "Low", risk_score: 14, sent: 8, failed: 0, last_action: "Reported Lure via Plugin" },
+        { id: 4, name: "Sarah Al-Mansoor", email: "s.almansoor@sme-defense.local", department: "IT", risk_level: "Low", risk_score: 12, sent: 9, failed: 0, last_action: "Reported Lure via Plugin" },
+        { id: 5, name: "Liam O'Connor", email: "l.oconnor@sme-defense.local", department: "HR", risk_level: "High", risk_score: 84, sent: 5, failed: 2, last_action: "Clicked Payroll Link" },
+        { id: 6, name: "Zoe Washington", email: "z.washington@sme-defense.local", department: "Marketing", risk_level: "Medium", risk_score: 52, sent: 6, failed: 1, last_action: "Opened Email (No click)" },
+        { id: 7, name: "Kenji Sato", email: "k.sato@sme-defense.local", department: "Engineering", risk_level: "Low", risk_score: 18, sent: 7, failed: 0, last_action: "Completed MFA Module" },
+        { id: 8, name: "Rachel Green", email: "r.green@sme-defense.local", department: "Finance", risk_level: "High", risk_score: 95, sent: 8, failed: 5, last_action: "Clicked Wire Transfer Lure" },
+        { id: 9, name: "Devon Brooks", email: "d.brooks@sme-defense.local", department: "Executive", risk_level: "Medium", risk_score: 45, sent: 4, failed: 1, last_action: "Reported Lure via SecOps" },
+        { id: 10, name: "Amina Yusuf", email: "a.yusuf@sme-defense.local", department: "HR", risk_level: "High", risk_score: 79, sent: 6, failed: 2, last_action: "Clicked Shared Doc Lure" },
+        { id: 11, name: "Carlos Mendez", email: "c.mendez@sme-defense.local", department: "Marketing", risk_level: "Medium", risk_score: 48, sent: 5, failed: 1, last_action: "Opened Email" },
+        { id: 12, name: "Priya Sharma", email: "p.sharma@sme-defense.local", department: "IT", risk_level: "Low", risk_score: 8, sent: 9, failed: 0, last_action: "Verified DKIM signature" },
+        { id: 13, name: "Brian Kowalski", email: "b.kowalski@sme-defense.local", department: "Engineering", risk_level: "Low", risk_score: 22, sent: 7, failed: 0, last_action: "Completed Training" },
+        { id: 14, name: "Taylor Reed", email: "t.reed@sme-defense.local", department: "Executive", risk_level: "High", risk_score: 81, sent: 4, failed: 2, last_action: "Clicked Executive Portal" }
+      ],
+
+      // Simulation Campaigns
+      campaigns: [
+        {
+          id: "c1",
+          name: "Q3 Financial Year-End Payroll Audit",
+          department: "Finance",
+          status: "Completed",
+          sent: 350,
+          delivered: 345,
+          opened: 290,
+          clicked: 120,
+          compromised: 68,
+          reported: 140,
+          launch_date: "2026-09-12 09:00",
+          template_title: "Urgent Direct Deposit Re-verification",
+          urgency: "High"
+        },
+        {
+          id: "c2",
+          name: "IT Helpdesk: Urgent MFA Reset Required",
+          department: "All Departments",
+          status: "Running",
+          sent: 520,
+          delivered: 512,
+          opened: 360,
+          clicked: 145,
+          compromised: 52,
+          reported: 210,
+          launch_date: "2026-09-22 10:30",
+          template_title: "Microsoft 365 MFA Resync Directive",
+          urgency: "High"
+        },
+        {
+          id: "c3",
+          name: "CEO Direct Wire Transfer Pretext",
+          department: "Executive & Finance",
+          status: "Running",
+          sent: 180,
+          delivered: 178,
+          opened: 130,
+          clicked: 42,
+          compromised: 18,
+          reported: 88,
+          launch_date: "2026-09-24 14:15",
+          template_title: "CONFIDENTIAL: Acquisition Escrow Authorization",
+          urgency: "High"
+        },
+        {
+          id: "c4",
+          name: "HR Mandatory Benefits Policy Update",
+          department: "General",
+          status: "Scheduled",
+          sent: 220,
+          delivered: 0,
+          opened: 0,
+          clicked: 0,
+          compromised: 0,
+          reported: 0,
+          launch_date: "2026-09-28 09:00",
+          template_title: "Open Enrollment Health Plan Summary",
+          urgency: "Medium"
+        },
+        {
+          id: "c5",
+          name: "Microsoft 365 Shared OneDrive File",
+          department: "Engineering",
+          status: "Draft",
+          sent: 150,
+          delivered: 0,
+          opened: 0,
+          clicked: 0,
+          compromised: 0,
+          reported: 0,
+          launch_date: "Draft (Unscheduled)",
+          template_title: "Bonus Compensation Spreadsheet.xlsx",
+          urgency: "Low"
+        }
+      ],
+
+      // Pre-crafted Pretexts
+      templates: [
+        {
+          id: "t1",
+          title: "IT Helpdesk: MFA Token Resynchronization Required",
+          subject: "SECURITY ALERT: Immediate Action Required - MFA Security Token Out of Sync",
+          department: "IT",
+          urgency: "High",
+          tone: "Authoritative",
+          body: `<p>Attention {{name}},</p><p>Our SOC telemetry detected an expired multi-factor authentication (MFA) token bound to your SME workstation. To prevent your corporate session from being terminated, please resynchronize your device:</p><p><span class="phish-token-link">{{tracking_link}}</span></p><p>Failure to complete token sync within 2 hours will result in automatic identity locking.</p>`
+        },
+        {
+          id: "t2",
+          title: "Payroll: Urgent Direct Deposit Verification",
+          subject: "ACTION REQUIRED: Direct deposit routing anomaly detected",
+          department: "Finance",
+          urgency: "High",
+          tone: "Alarming",
+          body: `<p>Dear {{name}},</p><p>An automated audit of our banking payroll clearinghouse identified a mismatch in your direct deposit transit instructions. Your upcoming paycheck will be placed in administrative holding unless confirmed below:</p><p><span class="phish-token-link">{{tracking_link}}</span></p><p>Corporate Payroll Operations</p>`
+        },
+        {
+          id: "t3",
+          title: "OneDrive: Confidential Shared Performance Bonus Document",
+          subject: "Shared Document: 'FY26_Executive_Compensation_Bonus_Pool.xlsx'",
+          department: "Executive",
+          urgency: "Medium",
+          tone: "Casual",
+          body: `<p>Hi {{name}},</p><p>Executive HR has shared a protected cloud spreadsheet with you for review. Access is restricted to designated personnel:</p><p><span class="phish-token-link">{{tracking_link}}</span></p><p>Microsoft OneDrive Secure Sharing</p>`
+        }
+      ],
+
+      // Remedial Training Modules
+      trainingModules: [
+        { id: "mod1", title: "Spear Phishing & BEC Detection", duration: "15 mins", completion: 92, avg_score: 88, high_risk_assigned: 5 },
+        { id: "mod2", title: "Credential Harvesting Red Flags", duration: "12 mins", completion: 84, avg_score: 79, high_risk_assigned: 6 },
+        { id: "mod3", title: "Social Engineering via Teams & Slack", duration: "10 mins", completion: 96, avg_score: 94, high_risk_assigned: 2 },
+        { id: "mod4", title: "Remedial MFA & Session Token Hygiene", duration: "8 mins", completion: 76, avg_score: 72, high_risk_assigned: 6 }
+      ],
+
+      // Immutable Audit Logs
+      auditLogs: [
+        {
+          id: "log-901",
+          timestamp: "2026-09-25 13:42:10",
+          user: "s.jenkins@sme-defense.local",
+          action: "CAMPAIGN_DISPATCH",
+          target: "Campaign c3 (CEO Wire)",
+          ip: "10.240.12.4",
+          status: "Verified",
+          details: { actor: "Sarah Jenkins", campaign_id: "c3", target_count: 180, schedule: "Immediate", sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" }
+        },
+        {
+          id: "log-902",
+          timestamp: "2026-09-25 12:15:33",
+          user: "s.jenkins@sme-defense.local",
+          action: "AI_GENERATE",
+          target: "Gemini Model (Flash-1.5)",
+          ip: "10.240.12.4",
+          status: "Verified",
+          details: { prompt_type: "Urgent Payroll Deposit", tokens_generated: 284, latency_ms: 612 }
+        },
+        {
+          id: "log-903",
+          timestamp: "2026-09-25 11:04:19",
+          user: "system.cron",
+          action: "TARGET_MUTATION",
+          target: "Employee #2 (Elena Rostova)",
+          ip: "127.0.0.1",
+          status: "Warning",
+          details: { reason: "Credential loss logged on c1", old_risk: 75, new_risk: 92, delta: "+17" }
+        },
+        {
+          id: "log-904",
+          timestamp: "2026-09-25 09:30:00",
+          user: "s.jenkins@sme-defense.local",
+          action: "CSV_IMPORT",
+          target: "Target Roster Batch #14",
+          ip: "10.240.12.4",
+          status: "Verified",
+          details: { rows_ingested: 14, parse_errors: 0, departments_detected: ["IT", "Finance", "HR", "Marketing", "Engineering", "Executive"] }
+        },
+        {
+          id: "log-905",
+          timestamp: "2026-09-25 08:00:21",
+          user: "s.jenkins@sme-defense.local",
+          action: "AUTH_LOGIN",
+          target: "SOC Web Console",
+          ip: "10.240.12.4",
+          status: "Verified",
+          details: { mfa_type: "FIDO2_HARDWARE_KEY", session_duration: "8h" }
+        }
+      ]
+    };
+
+    // -------------------------------------------------------------
+    // 2. API CLIENT SERVICE LAYER (MATCHING BACKEND ROUTES)
+    // -------------------------------------------------------------
+    class ApiClientService {
+      constructor() {
+        this.baseUrl = window.AppMockState.apiBaseUrl;
+      }
+
+      getHeaders() {
+        return {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${window.AppMockState.jwtToken}`
+        };
+      }
+
+      async execute(endpoint, options = {}, mockFallback) {
+        if (!window.AppMockState.isLiveMode) {
+          return mockFallback();
+        }
+
+        try {
+          const res = await fetch(`${this.baseUrl}${endpoint}`, {
+            ...options,
+            headers: {
+              ...this.getHeaders(),
+              ...(options.headers || {})
+            }
+          });
+
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return await res.json();
+        } catch (err) {
+          console.warn(`[ApiClient] Live API call to ${endpoint} failed. Utilizing reactive mock state:`, err);
+          showToast(`Live API offline (${err.message}). Using reactive mock engine.`, 'warn');
+          return mockFallback();
+        }
+      }
+
+      // --- Auth Endpoints ---
+      auth = {
+        login: async (email, password) => {
+          return this.execute('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
+          }, () => ({ token: window.AppMockState.jwtToken, user: { email, role: 'SecOps Lead' } }));
+        },
+        forgotPassword: async (email) => {
+          return this.execute('/api/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email })
+          }, () => ({ message: "Reset token dispatched" }));
+        },
+        resetPassword: async (token, newPassword) => {
+          return this.execute('/api/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ token, password: newPassword })
+          }, () => ({ message: "Password updated successfully" }));
+        }
+      };
+
+      // --- Employee Endpoints ---
+      employees = {
+        getAll: async ({ search = '', department = '', risk_level = '', page = 1, limit = 10 } = {}) => {
+          return this.execute(`/api/employees?search=${encodeURIComponent(search)}&department=${encodeURIComponent(department)}&risk_level=${encodeURIComponent(risk_level)}&page=${page}&limit=${limit}`, {}, () => {
+            let list = [...window.AppMockState.employees];
+            if (search) {
+              const q = search.toLowerCase();
+              list = list.filter(e => e.name.toLowerCase().includes(q) || e.email.toLowerCase().includes(q));
+            }
+            if (department && department !== 'ALL') {
+              list = list.filter(e => e.department.toLowerCase() === department.toLowerCase());
+            }
+            if (risk_level && risk_level !== 'ALL') {
+              list = list.filter(e => e.risk_level.toLowerCase() === risk_level.toLowerCase());
+            }
+            const total = list.length;
+            const start = (page - 1) * limit;
+            const paginated = list.slice(start, start + limit);
+            return { data: paginated, total, page, limit };
+          });
+        },
+        create: async (employeeData) => {
+          return this.execute('/api/employees', {
+            method: 'POST',
+            body: JSON.stringify(employeeData)
+          }, () => {
+            const newEmp = {
+              id: Date.now(),
+              name: employeeData.name,
+              email: employeeData.email,
+              department: employeeData.department || 'General',
+              risk_level: employeeData.risk_level || 'Medium',
+              risk_score: employeeData.risk_level === 'High' ? 82 : (employeeData.risk_level === 'Low' ? 15 : 45),
+              sent: 0,
+              failed: 0,
+              last_action: 'Enrolled via Dashboard'
+            };
+            window.AppMockState.employees.unshift(newEmp);
+            logAuditEvent('TARGET_MUTATION', `Added ${newEmp.name} (${newEmp.email})`, { employee: newEmp });
+            return newEmp;
+          });
+        },
+        delete: async (id) => {
+          return this.execute(`/api/employees/${id}`, {
+            method: 'DELETE'
+          }, () => {
+            const idx = window.AppMockState.employees.findIndex(e => e.id === Number(id));
+            if (idx !== -1) {
+              const removed = window.AppMockState.employees.splice(idx, 1)[0];
+              logAuditEvent('TARGET_MUTATION', `Deleted employee ID ${id}`, { removed });
+            }
+            return { success: true };
+          });
+        },
+        uploadCsv: async (records) => {
+          return this.execute('/api/employees/upload-csv', {
+            method: 'POST',
+            body: JSON.stringify({ records })
+          }, () => {
+            let addedCount = 0;
+            records.forEach(r => {
+              if (r.name && r.email) {
+                window.AppMockState.employees.unshift({
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  name: r.name.trim(),
+                  email: r.email.trim(),
+                  department: r.department ? r.department.trim() : 'General',
+                  risk_level: 'Medium',
+                  risk_score: 50,
+                  sent: 0,
+                  failed: 0,
+                  last_action: 'CSV Batch Ingestion'
+                });
+                addedCount++;
+              }
+            });
+            logAuditEvent('CSV_IMPORT', `Bulk ingested ${addedCount} target employees`, { count: addedCount });
+            return { success: true, count: addedCount };
+          });
+        }
+      };
+
+      // --- Campaign Endpoints ---
+      campaigns = {
+        getAll: async () => {
+          return this.execute('/api/campaigns', {}, () => window.AppMockState.campaigns);
+        },
+        create: async (campaignData) => {
+          return this.execute('/api/campaigns', {
+            method: 'POST',
+            body: JSON.stringify(campaignData)
+          }, () => {
+            const newCamp = {
+              id: 'c' + (window.AppMockState.campaigns.length + 1),
+              name: campaignData.name,
+              department: campaignData.department,
+              status: campaignData.schedule === 'Immediate' ? 'Running' : (campaignData.schedule === 'Draft' ? 'Draft' : 'Scheduled'),
+              sent: campaignData.schedule === 'Immediate' ? window.AppMockState.employees.length : 0,
+              delivered: campaignData.schedule === 'Immediate' ? window.AppMockState.employees.length - 1 : 0,
+              opened: 0,
+              clicked: 0,
+              compromised: 0,
+              reported: 0,
+              launch_date: campaignData.schedule === 'Immediate' ? 'Just Now' : 'Scheduled',
+              template_title: campaignData.template_title || 'Custom AI Pretext',
+              urgency: campaignData.urgency || 'High'
+            };
+            window.AppMockState.campaigns.unshift(newCamp);
+            logAuditEvent('CAMPAIGN_DISPATCH', `Created campaign: ${newCamp.name}`, { campaign: newCamp });
+            return newCamp;
+          });
+        },
+        send: async (id) => {
+          return this.execute(`/api/campaigns/${id}/send`, {
+            method: 'POST'
+          }, () => {
+            const c = window.AppMockState.campaigns.find(item => item.id === id);
+            if (c) {
+              c.status = 'Running';
+              c.sent = window.AppMockState.employees.length;
+              c.delivered = c.sent - 1;
+              c.launch_date = 'Just Now';
+              logAuditEvent('CAMPAIGN_DISPATCH', `Dispatched campaign ${c.name} to targets`, { campaign_id: id });
+            }
+            return { success: true, campaign: c };
+          });
+        },
+        cancel: async (id) => {
+          return this.execute(`/api/campaigns/${id}/cancel`, {
+            method: 'POST'
+          }, () => {
+            const c = window.AppMockState.campaigns.find(item => item.id === id);
+            if (c) {
+              c.status = 'Draft';
+              logAuditEvent('CAMPAIGN_DISPATCH', `Halted/Canceled campaign ${c.name}`, { campaign_id: id });
+            }
+            return { success: true, campaign: c };
+          });
+        }
+      };
+
+      // --- AI Endpoints ---
+      ai = {
+        generateEmail: async ({ scenario, department, tone, urgency }) => {
+          return this.execute('/api/ai/generate-email', {
+            method: 'POST',
+            body: JSON.stringify({ scenario, department, tone, urgency })
+          }, () => {
+            let subject = `URGENT: ${scenario} Notification`;
+            if (scenario.toLowerCase().includes('payroll')) {
+              subject = "ACTION REQUIRED: Immediate verification of payroll routing instructions";
+            } else if (scenario.toLowerCase().includes('mfa')) {
+              subject = "CRITICAL: Microsoft 365 MFA Token Out of Sync - Re-verify Device";
+            } else if (scenario.toLowerCase().includes('wire')) {
+              subject = "CONFIDENTIAL ESCROW: Emergency wire authorization sign-off";
+            }
+
+            const bodyHtml = `
+              <p>Dear <span class="phish-token-name">{{name}}</span>,</p>
+              <p>Our security and administrative systems have flagged an automated verification requirement regarding <strong>${scenario}</strong> for your account in the <strong>${department}</strong> division.</p>
+              <p>Given the ${urgency.toLowerCase()} urgency of this administrative cycle, please authenticate and verify your identity immediately to prevent suspension of your access permissions:</p>
+              <p class="py-1">
+                <span class="phish-token-link">{{tracking_link}}</span>
+              </p>
+              <p class="text-[11px] text-slate-400">Enterprise Security Awareness & Identity Governance</p>
+            `;
+            logAuditEvent('AI_GENERATE', `Synthesized lure via Gemini: "${scenario}"`, { scenario, department, tone, urgency });
+            return { subject, body: bodyHtml };
+          });
+        },
+        getRiskAnalysis: async () => {
+          return this.execute('/api/ai/risk-analysis', {}, () => {
+            const highRiskOffenders = window.AppMockState.employees.filter(e => e.risk_level === 'High');
+            return {
+              executive_summary: "Evaluating 14 organizational endpoints across 5 active simulation campaigns. Human risk posture exhibits severe susceptibility to financial pretexts, with Finance and HR demonstrating a 3.4x higher compromise rate compared to Engineering and IT. Immediate MFA reinforcement required.",
+              high_risk_offenders: highRiskOffenders,
+              remediation_modules: [
+                { id: "mod2", title: "Credential Harvesting Red Flags", urgency: "Immediate" },
+                { id: "mod4", title: "Remedial MFA & Session Token Hygiene", urgency: "High" }
+              ]
+            };
+          });
+        }
+      };
+
+      // --- Reports & Analytics Endpoints ---
+      reports = {
+        getCampaign: async (id) => {
+          return this.execute(`/api/reports/campaign/${id}`, {}, () => {
+            const c = window.AppMockState.campaigns.find(item => item.id === id) || window.AppMockState.campaigns[0];
+            return {
+              sent: c.sent,
+              delivered: c.delivered,
+              opened: c.opened,
+              clicked: c.clicked,
+              compromised: c.compromised,
+              reported: c.reported
+            };
+          });
+        },
+        getCampaignCsv: async (id) => {
+          return this.execute(`/api/reports/campaign/${id}/csv`, {}, () => {
+            return `id,name,email,status,compromised\n1,Marcus Vance,m.vance@sme-defense.local,Opened,1\n2,Elena Rostova,e.rostova@sme-defense.local,Clicked,1`;
+          });
+        },
+        getCampaignPdf: async (id) => {
+          return this.execute(`/api/reports/campaign/${id}/pdf`, {}, () => {
+            return { download_url: "#", status: "generated" };
+          });
+        },
+        getTrainingProgress: async () => {
+          return this.execute('/api/reports/training-progress', {}, () => window.AppMockState.trainingModules);
+        }
+      };
+
+      analytics = {
+        getHeatmap: async () => {
+          return this.execute('/api/analytics/heatmap', {}, () => generateMockHeatmapData());
+        },
+        getDepartments: async () => {
+          return this.execute('/api/analytics/departments', {}, () => ([
+            { department: "IT", click_rate: 4.2, compromise_rate: 1.1, targets: 240 },
+            { department: "Finance", click_rate: 34.8, compromise_rate: 19.4, targets: 310 },
+            { department: "HR", click_rate: 28.5, compromise_rate: 14.2, targets: 180 },
+            { department: "Marketing", click_rate: 21.0, compromise_rate: 9.5, targets: 220 },
+            { department: "Engineering", click_rate: 8.6, compromise_rate: 2.8, targets: 340 },
+            { department: "Executive", click_rate: 24.0, compromise_rate: 16.0, targets: 130 }
+          ]));
+        },
+        getCampaignComparison: async (c1, c2) => {
+          return this.execute(`/api/analytics/campaign-comparison?campaign1=${c1}&campaign2=${c2}`, {}, () => {
+            const camp1 = window.AppMockState.campaigns.find(c => c.id === c1) || window.AppMockState.campaigns[0];
+            const camp2 = window.AppMockState.campaigns.find(c => c.id === c2) || window.AppMockState.campaigns[1];
+            return { camp1, camp2 };
+          });
+        }
+      };
+
+      audit = {
+        getLogs: async () => {
+          return this.execute('/api/audit-logs', {}, () => window.AppMockState.auditLogs);
+        }
+      };
+    }
+
+    const apiClient = new ApiClientService();
+
+    // -------------------------------------------------------------
+    // 3. AUDIT LOGGING HELPER
+    // -------------------------------------------------------------
+    function logAuditEvent(action, target, details = {}) {
+      const newLog = {
+        id: `log-${Date.now().toString().slice(-4)}`,
+        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        user: "s.jenkins@sme-defense.local",
+        action,
+        target,
+        ip: "10.240.12.4",
+        status: action.includes('WARN') ? 'Warning' : 'Verified',
+        details
+      };
+      window.AppMockState.auditLogs.unshift(newLog);
+      if (document.getElementById('view-audit') && !document.getElementById('view-audit').classList.contains('hidden')) {
+        renderAuditLogs();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 4. UI SHELL & TAB NAVIGATION
+    // -------------------------------------------------------------
+    let currentActiveTab = 'overview';
+    let funnelChartInstance = null;
+    let deptChartInstance = null;
+    let currentPage = 1;
+    const targetsPerPage = 6;
+
+    function switchTab(tabId) {
+      currentActiveTab = tabId;
+      document.querySelectorAll('.view-panel').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.nav-item').forEach(el => {
+        el.classList.remove('bg-blue-600/10', 'text-blue-400', 'border-blue-500/30');
+        el.classList.add('text-slate-300', 'border-transparent');
+      });
+
+      const activeView = document.getElementById(`view-${tabId}`);
+      if (activeView) activeView.classList.remove('hidden');
+
+      const activeNav = document.getElementById(`nav-${tabId}`);
+      if (activeNav) {
+        activeNav.classList.remove('text-slate-300', 'border-transparent');
+        activeNav.classList.add('bg-blue-600/10', 'text-blue-400', 'border-blue-500/30');
+      }
+
+      const breadcrumb = document.getElementById('breadcrumb-view');
+      if (breadcrumb) {
+        breadcrumb.textContent = tabId.replace('-', ' ');
+      }
+
+      // Re-trigger view initialization
+      if (tabId === 'overview') {
+        renderOverviewMetrics();
+        initFunnelChart();
+      } else if (tabId === 'targets') {
+        renderTargetRoster();
+      } else if (tabId === 'campaigns') {
+        renderCampaigns();
+        renderTemplateCards();
+      } else if (tabId === 'analytics') {
+        renderHeatmap();
+        initDeptChart();
+        populateComparisonSelectors();
+        runCampaignComparison();
+      } else if (tabId === 'training') {
+        renderTrainingModules();
+      } else if (tabId === 'audit') {
+        renderAuditLogs();
+      }
+
+      refreshLucideIcons();
+    }
+
+    function refreshLucideIcons() {
+      if (window.lucide && typeof window.lucide.createIcons === 'function') {
+        window.lucide.createIcons();
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 5. ENGINE MODE TOGGLING (MOCK VS LIVE API)
+    // -------------------------------------------------------------
+    function toggleEngineMode(mode) {
+      window.AppMockState.isLiveMode = (mode === 'live');
+      const btnMock = document.getElementById('btn-mode-mock');
+      const btnLive = document.getElementById('btn-mode-live');
+      const liveDot = document.getElementById('live-indicator-dot');
+      const statusText = document.getElementById('api-mode-status-text');
+
+      if (window.AppMockState.isLiveMode) {
+        btnLive.className = "px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-emerald-600 text-white shadow-sm flex items-center gap-1.5";
+        btnMock.className = "px-2.5 py-1 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5";
+        liveDot.className = "w-2 h-2 rounded-full bg-emerald-300 animate-pulse";
+        if (statusText) statusText.innerHTML = `Connected to live gateway at <code class="text-blue-400">${window.AppMockState.apiBaseUrl}</code> with Bearer JWT.`;
+        showToast(`Switched to Live API Mode (${window.AppMockState.apiBaseUrl})`, 'info');
+      } else {
+        btnMock.className = "px-2.5 py-1 rounded-md text-xs font-medium transition-all bg-blue-600 text-white shadow-sm flex items-center gap-1.5";
+        btnLive.className = "px-2.5 py-1 rounded-md text-xs font-medium transition-all text-slate-400 hover:text-slate-200 flex items-center gap-1.5";
+        liveDot.className = "w-2 h-2 rounded-full bg-slate-600";
+        if (statusText) statusText.textContent = "Engine is operating in Mock Data mode (Zero network latency).";
+        showToast("Switched to Mock Data Engine (Local Reactive State)", 'info');
+      }
+
+      switchTab(currentActiveTab);
+    }
+
+    function openApiConfigModal() {
+      document.getElementById('api-base-url-input').value = window.AppMockState.apiBaseUrl;
+      document.getElementById('api-jwt-input').value = window.AppMockState.jwtToken;
+      openModal('modal-api-config');
+    }
+
+    function saveApiConfig() {
+      const url = document.getElementById('api-base-url-input').value.trim();
+      const jwt = document.getElementById('api-jwt-input').value.trim();
+      if (url) {
+        window.AppMockState.apiBaseUrl = url;
+        localStorage.setItem('api_base_url', url);
+      }
+      if (jwt) {
+        window.AppMockState.jwtToken = jwt;
+        localStorage.setItem('jwt', jwt);
+      }
+      closeModal('modal-api-config');
+      showToast("API gateway configuration saved.", 'success');
+    }
+
+    // -------------------------------------------------------------
+    // 6. VIEW 1: EXECUTIVE OVERVIEW RENDERING
+    // -------------------------------------------------------------
+    async function renderOverviewMetrics() {
+      const emps = window.AppMockState.employees;
+      const comps = window.AppMockState.campaigns;
+
+      document.getElementById('nav-target-count').textContent = emps.length;
+      document.getElementById('kpi-targeted-count').textContent = (emps.length * 102).toLocaleString();
+      
+      const activeCount = comps.filter(c => c.status === 'Running').length;
+      document.getElementById('kpi-active-campaigns').textContent = `${activeCount} Running`;
+
+      // Live Telemetry Feed
+      const feed = document.getElementById('live-telemetry-feed');
+      feed.innerHTML = `
+        <div class="p-2 rounded bg-slate-950/70 border border-slate-800 text-[11px] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+            <span class="text-slate-200 font-medium">Credential Input Intercepted</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">1m ago</span>
+        </div>
+        <div class="p-2 rounded bg-slate-950/70 border border-slate-800 text-[11px] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span class="text-slate-200">Email Link Clicked: Finance Target</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">4m ago</span>
+        </div>
+        <div class="p-2 rounded bg-slate-950/70 border border-slate-800 text-[11px] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-slate-200">Remedial MFA Module Finished</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">12m ago</span>
+        </div>
+        <div class="p-2 rounded bg-slate-950/70 border border-slate-800 text-[11px] flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span class="text-slate-200">Phish Reported via SecOps Plugin</span>
+          </div>
+          <span class="text-[10px] text-slate-400 font-mono">22m ago</span>
+        </div>
+      `;
+    }
+
+    async function initFunnelChart() {
+      const ctx = document.getElementById('attackFunnelChart');
+      if (!ctx) return;
+
+      if (funnelChartInstance) {
+        funnelChartInstance.destroy();
+      }
+
+      if (typeof Chart === 'undefined') {
+        console.warn("Chart.js not loaded yet");
+        return;
+      }
+
+      funnelChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['1. Sent', '2. Delivered', '3. Opened', '4. Clicked', '5. Compromised'],
+          datasets: [{
+            label: 'Targets Reached',
+            data: [1420, 1385, 984, 382, 168],
+            backgroundColor: [
+              'rgba(59, 130, 246, 0.7)',
+              'rgba(16, 185, 129, 0.7)',
+              'rgba(245, 158, 11, 0.7)',
+              'rgba(244, 63, 94, 0.7)',
+              'rgba(225, 29, 72, 0.9)'
+            ],
+            borderColor: [
+              '#3b82f6',
+              '#10b981',
+              '#f59e0b',
+              '#f43f5e',
+              '#e11d48'
+            ],
+            borderWidth: 1.5,
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          indexAxis: 'y',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#e2e8f0',
+              bodyColor: '#94a3b8',
+              borderColor: '#1e293b',
+              borderWidth: 1,
+              callbacks: {
+                label: function(context) {
+                  const val = context.raw;
+                  const pct = ((val / 1420) * 100).toFixed(1);
+                  return ` ${val.toLocaleString()} targets (${pct}% conversion)`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.25)' },
+              ticks: { color: '#94a3b8', font: { family: 'monospace', size: 10 } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#e2e8f0', font: { weight: 'bold', size: 11 } }
+            }
+          }
+        }
+      });
+    }
+
+    function updateFunnelChart(campVal) {
+      if (!funnelChartInstance) return;
+      if (campVal === 'c1') {
+        funnelChartInstance.data.datasets[0].data = [350, 345, 290, 120, 68];
+        document.getElementById('funnel-step-sent').textContent = '350';
+        document.getElementById('funnel-step-deliv').textContent = '345';
+        document.getElementById('funnel-step-opened').textContent = '290';
+        document.getElementById('funnel-step-clicked').textContent = '120';
+        document.getElementById('funnel-step-comp').textContent = '68';
+      } else if (campVal === 'c2') {
+        funnelChartInstance.data.datasets[0].data = [520, 512, 360, 145, 52];
+        document.getElementById('funnel-step-sent').textContent = '520';
+        document.getElementById('funnel-step-deliv').textContent = '512';
+        document.getElementById('funnel-step-opened').textContent = '360';
+        document.getElementById('funnel-step-clicked').textContent = '145';
+        document.getElementById('funnel-step-comp').textContent = '52';
+      } else {
+        funnelChartInstance.data.datasets[0].data = [1420, 1385, 984, 382, 168];
+        document.getElementById('funnel-step-sent').textContent = '1,420';
+        document.getElementById('funnel-step-deliv').textContent = '1,385';
+        document.getElementById('funnel-step-opened').textContent = '984';
+        document.getElementById('funnel-step-clicked').textContent = '382';
+        document.getElementById('funnel-step-comp').textContent = '168';
+      }
+      funnelChartInstance.update();
+    }
+
+    // -------------------------------------------------------------
+    // 7. VIEW 2: TARGET DIRECTORY (EMPLOYEES)
+    // -------------------------------------------------------------
+    async function renderTargetRoster() {
+      const search = document.getElementById('target-search-input')?.value || '';
+      const dept = document.getElementById('target-dept-filter')?.value || 'ALL';
+      const risk = document.getElementById('target-risk-filter')?.value || 'ALL';
+
+      const response = await apiClient.employees.getAll({
+        search,
+        department: dept,
+        risk_level: risk,
+        page: currentPage,
+        limit: targetsPerPage
+      });
+
+      const tbody = document.getElementById('targets-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (response.data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">No targets found matching the active filters.</td></tr>`;
+        return;
+      }
+
+      response.data.forEach(target => {
+        let riskBadge = '';
+        if (target.risk_level === 'High') {
+          riskBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span> High Risk (${target.risk_score})
+          </span>`;
+        } else if (target.risk_level === 'Medium') {
+          riskBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Medium (${target.risk_score})
+          </span>`;
+        } else {
+          riskBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Low Risk (${target.risk_score})
+          </span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/60 transition-colors";
+        tr.innerHTML = `
+          <td class="py-3 px-4">
+            <input type="checkbox" class="target-row-checkbox rounded border-slate-700 bg-slate-900 text-blue-500 focus:ring-0">
+          </td>
+          <td class="py-3 px-4">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-full bg-slate-800 text-slate-300 font-bold flex items-center justify-center text-xs shrink-0 border border-slate-700">
+                ${target.name.split(' ').map(n=>n[0]).join('')}
+              </div>
+              <div>
+                <div class="font-medium text-slate-200">${target.name}</div>
+                <div class="text-[11px] text-slate-400 font-mono">${target.email}</div>
+              </div>
+            </div>
+          </td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">${target.department}</span>
+          </td>
+          <td class="py-3 px-4">${riskBadge}</td>
+          <td class="py-3 px-4 font-mono text-[11px]">
+            <span class="text-blue-400">${target.sent} sent</span> / 
+            <span class="${target.failed > 0 ? 'text-rose-400 font-bold' : 'text-slate-400'}">${target.failed} failed</span>
+          </td>
+          <td class="py-3 px-4 text-slate-400 text-[11px] truncate max-w-[140px]" title="${target.last_action}">
+            ${target.last_action}
+          </td>
+          <td class="py-3 px-4 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="testTargetDrill('${target.email}')" class="p-1 rounded text-slate-400 hover:text-blue-400 hover:bg-slate-800 transition-colors" title="Simulate Immediate Drill">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="deleteTargetEmployee(${target.id})" class="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors" title="Remove Target">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      // Pagination indicators
+      const start = (currentPage - 1) * targetsPerPage + 1;
+      const end = Math.min(start + response.data.length - 1, response.total);
+      document.getElementById('pag-start').textContent = response.data.length ? start : 0;
+      document.getElementById('pag-end').textContent = end;
+      document.getElementById('pag-total').textContent = response.total;
+      document.getElementById('current-page').textContent = currentPage;
+      document.getElementById('btn-prev-page').disabled = (currentPage === 1);
+      document.getElementById('btn-next-page').disabled = (end >= response.total);
+
+      refreshLucideIcons();
+    }
+
+    function filterTargets() {
+      currentPage = 1;
+      renderTargetRoster();
+    }
+
+    function changePage(delta) {
+      currentPage += delta;
+      if (currentPage < 1) currentPage = 1;
+      renderTargetRoster();
+    }
+
+    function toggleSelectAllTargets(checked) {
+      document.querySelectorAll('.target-row-checkbox').forEach(cb => cb.checked = checked);
+    }
+
+    function openAddTargetModal() {
+      document.getElementById('form-add-target').reset();
+      openModal('modal-add-target');
+    }
+
+    async function submitAddTarget(e) {
+      e.preventDefault();
+      const name = document.getElementById('target-name').value.trim();
+      const email = document.getElementById('target-email').value.trim();
+      const department = document.getElementById('target-dept').value;
+      const risk_level = document.getElementById('target-risk').value;
+
+      if (!name || !email) {
+        showToast("Please provide both name and corporate email.", "warn");
+        return;
+      }
+
+      await apiClient.employees.create({ name, email, department, risk_level });
+      closeModal('modal-add-target');
+      showToast(`Target employee ${name} successfully enrolled.`, 'success');
+      renderTargetRoster();
+      renderOverviewMetrics();
+    }
+
+    async function deleteTargetEmployee(id) {
+      if (confirm("Are you sure you wish to delete this employee target from the simulation directory?")) {
+        await apiClient.employees.delete(id);
+        showToast("Target removed from directory.", "info");
+        renderTargetRoster();
+        renderOverviewMetrics();
+      }
+    }
+
+    function testTargetDrill(email) {
+      showToast(`Triggered simulated phishing lure to: ${email}`, 'info');
+      logAuditEvent('CAMPAIGN_DISPATCH', `Ad-hoc test lure dispatched to ${email}`, { target_email: email });
+    }
+
+    // --- Bulk CSV Ingestion ---
+    function openCsvModal() {
+      document.getElementById('csv-progress-container').classList.add('hidden');
+      document.getElementById('csv-progress-bar').style.width = '0%';
+      document.getElementById('btn-process-csv').disabled = false;
+      openModal('modal-csv-upload');
+    }
+
+    function loadSampleCsvText() {
+      const sample = "name, email, department\nJordan Kelly, j.kelly@sme-defense.local, Finance\nLiam Gallagher, l.gallagher@sme-defense.local, Engineering\nSophia Miller, s.miller@sme-defense.local, HR\nNathan Drake, n.drake@sme-defense.local, IT\nOlivia Pope, o.pope@sme-defense.local, Executive";
+      document.getElementById('csv-raw-textarea').value = sample;
+    }
+
+    function handleCsvFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('csv-raw-textarea').value = e.target.result;
+        showToast(`Loaded ${file.name} (${(file.size/1024).toFixed(1)} KB)`, 'info');
+      };
+      reader.readAsText(file);
+    }
+
+    async function processCsvIngestion() {
+      const raw = document.getElementById('csv-raw-textarea').value.trim();
+      if (!raw) {
+        showToast("Please select a CSV file or paste valid CSV text.", "warn");
+        return;
+      }
+
+      const lines = raw.split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length <= 1) {
+        showToast("CSV must contain a header and at least one target record.", "warn");
+        return;
+      }
+
+      const records = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+        if (parts.length >= 2) {
+          records.push({
+            name: parts[0],
+            email: parts[1],
+            department: parts[2] || 'General'
+          });
+        }
+      }
+
+      if (records.length === 0) {
+        showToast("No valid target rows could be parsed. Check schema.", "warn");
+        return;
+      }
+
+      const progressContainer = document.getElementById('csv-progress-container');
+      const progressBar = document.getElementById('csv-progress-bar');
+      const progressPercent = document.getElementById('csv-progress-percent');
+      const btn = document.getElementById('btn-process-csv');
+      btn.disabled = true;
+      progressContainer.classList.remove('hidden');
+
+      let currentPct = 0;
+      const interval = setInterval(async () => {
+        currentPct += 25;
+        progressBar.style.width = `${currentPct}%`;
+        progressPercent.textContent = `${currentPct}%`;
+
+        if (currentPct >= 100) {
+          clearInterval(interval);
+          await apiClient.employees.uploadCsv(records);
+          closeModal('modal-csv-upload');
+          showToast(`Successfully ingested ${records.length} new targets via CSV batch.`, "success");
+          renderTargetRoster();
+          renderOverviewMetrics();
+        }
+      }, 150);
+    }
+
+    // -------------------------------------------------------------
+    // 8. VIEW 3: CAMPAIGN STUDIO & GEMINI AI GENERATOR
+    // -------------------------------------------------------------
+    async function renderCampaigns() {
+      const campaigns = await apiClient.campaigns.getAll();
+      const tbody = document.getElementById('campaigns-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      document.getElementById('campaign-count-badge').textContent = `${campaigns.length} Campaigns`;
+
+      campaigns.forEach(c => {
+        let statusBadge = '';
+        if (c.status === 'Running') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span> Running
+          </span>`;
+        } else if (c.status === 'Completed') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Completed
+          </span>`;
+        } else if (c.status === 'Scheduled') {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> Scheduled
+          </span>`;
+        } else {
+          statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
+            Draft
+          </span>`;
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/60 transition-colors";
+        tr.innerHTML = `
+          <td class="py-3 px-4">
+            <div class="font-semibold text-slate-100">${c.name}</div>
+            <div class="text-[11px] text-slate-400 font-mono flex items-center gap-1.5 mt-0.5">
+              <span class="text-purple-400">${c.template_title}</span>
+            </div>
+          </td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-800 text-slate-300 border border-slate-700">${c.department}</span>
+          </td>
+          <td class="py-3 px-4">${statusBadge}</td>
+          <td class="py-3 px-4 font-mono text-[11px]">
+            <div class="flex items-center gap-2">
+              <span class="text-slate-300">${c.sent} sent</span>
+              <span class="text-rose-400 font-bold">(${c.compromised} comp)</span>
+            </div>
+            <div class="w-32 bg-slate-800 h-1.5 rounded-full mt-1 overflow-hidden">
+              <div class="bg-rose-500 h-full" style="width: ${c.sent > 0 ? (c.compromised/c.sent)*100 : 0}%"></div>
+            </div>
+          </td>
+          <td class="py-3 px-4 text-slate-400 text-[11px] font-mono">${c.launch_date}</td>
+          <td class="py-3 px-4 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              ${c.status === 'Draft' || c.status === 'Scheduled' ? `
+                <button onclick="dispatchCampaignNow('${c.id}')" class="px-2 py-1 rounded bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600 hover:text-white transition-all text-[11px] font-semibold">
+                  Send Now
+                </button>
+              ` : `
+                <button onclick="viewCampaignReport('${c.id}')" class="px-2 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 transition-all text-[11px]">
+                  Audit
+                </button>
+              `}
+              ${c.status === 'Running' ? `
+                <button onclick="cancelCampaignNow('${c.id}')" class="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 hover:bg-rose-600 hover:text-white transition-all text-[11px]">
+                  Halt
+                </button>
+              ` : ''}
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      refreshLucideIcons();
+    }
+
+    function renderTemplateCards() {
+      const grid = document.getElementById('template-cards-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      window.AppMockState.templates.forEach(t => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm hover:border-slate-700 transition-all space-y-3 flex flex-col justify-between";
+        card.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex items-center justify-between text-[10px] font-mono">
+              <span class="px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 border border-purple-500/20 font-bold">${t.department} Scope</span>
+              <span class="text-rose-400 font-semibold">${t.urgency} Urgency</span>
+            </div>
+            <h4 class="text-xs font-bold text-slate-200 leading-tight">${t.title}</h4>
+            <p class="text-[11px] text-slate-400 line-clamp-2">${t.subject}</p>
+          </div>
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+            <span class="text-[10px] text-slate-400 font-mono">AI Verified</span>
+            <button onclick="loadTemplateToAi('${t.id}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs font-medium flex items-center gap-1 transition-colors">
+              <i data-lucide="edit-3" class="w-3 h-3"></i>
+              <span>Customize</span>
+            </button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+      refreshLucideIcons();
+    }
+
+    function openNewCampaignModal() {
+      document.getElementById('form-new-campaign').reset();
+      openModal('modal-new-campaign');
+    }
+
+    async function submitNewCampaign(e) {
+      e.preventDefault();
+      const name = document.getElementById('wiz-camp-name').value.trim();
+      const department = document.getElementById('wiz-camp-dept').value;
+      const schedule = document.getElementById('wiz-camp-schedule').value;
+      const templateSelector = document.getElementById('wiz-camp-template');
+      const template_title = templateSelector.options[templateSelector.selectedIndex].text;
+
+      if (!name) return;
+
+      await apiClient.campaigns.create({
+        name,
+        department,
+        schedule,
+        template_title
+      });
+
+      closeModal('modal-new-campaign');
+      showToast(`Campaign '${name}' created and orchestrated.`, "success");
+      renderCampaigns();
+      renderOverviewMetrics();
+    }
+
+    async function dispatchCampaignNow(id) {
+      if (confirm("Confirm Dispatch: This will simulate sending real phishing lures to enrolled employee inboxes.")) {
+        await apiClient.campaigns.send(id);
+        showToast("Campaign simulation drill dispatched immediately!", "success");
+        renderCampaigns();
+        renderOverviewMetrics();
+      }
+    }
+
+    async function cancelCampaignNow(id) {
+      if (confirm("Halt Drill: Stop in-flight lure transmissions?")) {
+        await apiClient.campaigns.cancel(id);
+        showToast("Campaign drill halted.", "info");
+        renderCampaigns();
+        renderOverviewMetrics();
+      }
+    }
+
+    function viewCampaignReport(id) {
+      switchTab('overview');
+      document.getElementById('funnel-campaign-selector').value = id;
+      updateFunnelChart(id);
+      showToast(`Loaded audit report for campaign ID: ${id}`, 'info');
+    }
+
+    // --- Gemini AI Generator Logic ---
+    function openGeminiModal() {
+      openModal('modal-gemini-generator');
+    }
+
+    function setPresetScenario(scenario) {
+      document.getElementById('ai-scenario-input').value = scenario;
+    }
+
+    function loadTemplateToAi(templateId) {
+      const t = window.AppMockState.templates.find(item => item.id === templateId);
+      if (t) {
+        document.getElementById('ai-scenario-input').value = t.title;
+        document.getElementById('ai-department-select').value = t.department;
+        document.getElementById('ai-preview-subject').textContent = t.subject;
+        document.getElementById('ai-preview-body').innerHTML = t.body;
+        openGeminiModal();
+      }
+    }
+
+    async function generateAiEmail() {
+      const scenario = document.getElementById('ai-scenario-input').value.trim();
+      const department = document.getElementById('ai-department-select').value;
+      const urgency = document.getElementById('ai-urgency-select').value;
+      const tone = document.getElementById('ai-tone-select').value;
+
+      if (!scenario) {
+        showToast("Please provide a pretext scenario.", "warn");
+        return;
+      }
+
+      const skeleton = document.getElementById('ai-loading-skeleton');
+      const previewBody = document.getElementById('ai-preview-body');
+      const previewSubject = document.getElementById('ai-preview-subject');
+      const btn = document.getElementById('btn-run-gemini');
+
+      skeleton.classList.remove('hidden');
+      btn.disabled = true;
+
+      setTimeout(async () => {
+        const result = await apiClient.ai.generateEmail({ scenario, department, tone, urgency });
+        previewSubject.textContent = result.subject;
+        previewBody.innerHTML = result.body;
+        skeleton.classList.add('hidden');
+        btn.disabled = false;
+        showToast("Gemini AI generated deceptive lure with embedded tracking tokens.", "success");
+      }, 700);
+    }
+
+    function acceptAiTemplateToCampaign() {
+      const scenario = document.getElementById('ai-scenario-input').value;
+      closeModal('modal-gemini-generator');
+
+      openNewCampaignModal();
+      document.getElementById('wiz-camp-name').value = `Gemini Drill: ${scenario.slice(0, 30)}`;
+      showToast("Template attached. Complete the wizard to schedule.", "info");
+    }
+
+    // -------------------------------------------------------------
+    // 9. VIEW 4: SECURITY ANALYTICS & TEMPORAL HEATMAP
+    // -------------------------------------------------------------
+    function generateMockHeatmapData() {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const data = [];
+      days.forEach((day, dIdx) => {
+        for (let h = 0; h < 24; h++) {
+          let count = 0;
+          if (dIdx < 5) {
+            if ((h >= 9 && h <= 11) || (h >= 14 && h <= 16)) {
+              count = Math.floor(Math.random() * 45) + 15;
+            } else if (h >= 8 && h <= 18) {
+              count = Math.floor(Math.random() * 20) + 5;
+            } else {
+              count = Math.floor(Math.random() * 4);
+            }
+          } else {
+            count = Math.floor(Math.random() * 3);
+          }
+          data.push({ day, hour: h, count });
+        }
+      });
+      return data;
+    }
+
+    async function renderHeatmap() {
+      const headerRow = document.querySelector('.hour-header-row');
+      if (headerRow && headerRow.children.length === 0) {
+        for (let h = 0; h < 24; h++) {
+          const div = document.createElement('div');
+          div.textContent = h < 10 ? `0${h}` : `${h}`;
+          headerRow.appendChild(div);
+        }
+      }
+
+      const body = document.getElementById('heatmap-grid-body');
+      if (!body) return;
+      body.innerHTML = '';
+
+      const heatmapData = await apiClient.analytics.getHeatmap();
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+      days.forEach(day => {
+        const row = document.createElement('div');
+        row.className = "grid grid-cols-25 gap-1 items-center";
+
+        const label = document.createElement('div');
+        label.className = "col-span-1 text-[11px] font-mono text-slate-400 font-semibold";
+        label.textContent = day;
+        row.appendChild(label);
+
+        const cellsContainer = document.createElement('div');
+        cellsContainer.className = "col-span-24 heatmap-col-24";
+
+        for (let h = 0; h < 24; h++) {
+          const cellData = heatmapData.find(d => d.day === day && d.hour === h) || { count: 0 };
+          const cell = document.createElement('div');
+          cell.className = "h-5 rounded-sm transition-all cursor-pointer transform hover:scale-125 hover:z-20 border border-slate-900";
+          
+          if (cellData.count === 0) {
+            cell.className += " bg-slate-950";
+          } else if (cellData.count < 8) {
+            cell.className += " bg-blue-900/60";
+          } else if (cellData.count < 22) {
+            cell.className += " bg-amber-600/80";
+          } else {
+            cell.className += " bg-rose-600 shadow-sm shadow-rose-600/50";
+          }
+
+          cell.onmouseenter = () => {
+            document.getElementById('heatmap-status-text').innerHTML = `
+              <strong>${day} at ${h < 10 ? '0' + h : h}:00</strong> &mdash; 
+              <span class="text-blue-400">${cellData.count * 3} Opens</span>, 
+              <span class="text-amber-400">${cellData.count} Clicks</span>, 
+              <span class="text-rose-400 font-bold">${Math.round(cellData.count * 0.35)} Compromises</span>
+            `;
+          };
+
+          cellsContainer.appendChild(cell);
+        }
+
+        row.appendChild(cellsContainer);
+        body.appendChild(row);
+      });
+    }
+
+    async function initDeptChart() {
+      const ctx = document.getElementById('deptVulnerabilityChart');
+      if (!ctx) return;
+
+      const depts = await apiClient.analytics.getDepartments();
+
+      if (deptChartInstance) {
+        deptChartInstance.destroy();
+      }
+
+      if (typeof Chart === 'undefined') return;
+
+      deptChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: depts.map(d => d.department),
+          datasets: [
+            {
+              label: 'Click Rate (%)',
+              data: depts.map(d => d.click_rate),
+              backgroundColor: 'rgba(245, 158, 11, 0.7)',
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              borderRadius: 4
+            },
+            {
+              label: 'Compromise Rate (%)',
+              data: depts.map(d => d.compromise_rate),
+              backgroundColor: 'rgba(244, 63, 94, 0.8)',
+              borderColor: '#f43f5e',
+              borderWidth: 1.5,
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#cbd5e1', font: { size: 11 } }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#e2e8f0',
+              bodyColor: '#94a3b8',
+              borderColor: '#1e293b',
+              borderWidth: 1
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.25)' },
+              ticks: { color: '#94a3b8' }
+            },
+            y: {
+              grid: { color: 'rgba(51, 65, 85, 0.25)' },
+              ticks: { color: '#94a3b8', callback: v => `${v}%` }
+            }
+          }
+        }
+      });
+    }
+
+    function populateComparisonSelectors() {
+      const selA = document.getElementById('compare-camp-a');
+      const selB = document.getElementById('compare-camp-b');
+      if (!selA || !selB) return;
+
+      selA.innerHTML = '';
+      selB.innerHTML = '';
+
+      window.AppMockState.campaigns.forEach((c, idx) => {
+        const optA = new Option(c.name, c.id, false, idx === 0);
+        const optB = new Option(c.name, c.id, false, idx === 1);
+        selA.add(optA);
+        selB.add(optB);
+      });
+    }
+
+    async function runCampaignComparison() {
+      const c1Id = document.getElementById('compare-camp-a')?.value || 'c1';
+      const c2Id = document.getElementById('compare-camp-b')?.value || 'c2';
+
+      const data = await apiClient.analytics.getCampaignComparison(c1Id, c2Id);
+      const { camp1, camp2 } = data;
+
+      const tbody = document.getElementById('comparison-table-body');
+      if (!tbody) return;
+
+      const calcRate = (num, den) => den > 0 ? ((num / den) * 100).toFixed(1) : "0.0";
+
+      const rows = [
+        { label: "Target Scope", a: camp1.sent, b: camp2.sent, unit: "" },
+        { label: "Open Rate", a: calcRate(camp1.opened, camp1.sent), b: calcRate(camp2.opened, camp2.sent), unit: "%" },
+        { label: "Click Rate", a: calcRate(camp1.clicked, camp1.sent), b: calcRate(camp2.clicked, camp2.sent), unit: "%", lowerIsBetter: true },
+        { label: "Compromise Rate", a: calcRate(camp1.compromised, camp1.sent), b: calcRate(camp2.compromised, camp2.sent), unit: "%", lowerIsBetter: true },
+        { label: "Report Rate", a: calcRate(camp1.reported, camp1.sent), b: calcRate(camp2.reported, camp2.sent), unit: "%", lowerIsBetter: false }
+      ];
+
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const valA = parseFloat(r.a);
+        const valB = parseFloat(r.b);
+        const diff = (valB - valA).toFixed(1);
+        
+        let deltaHtml = '';
+        if (isNaN(diff) || diff == 0) {
+          deltaHtml = `<span class="text-slate-400">0.0${r.unit} (No Change)</span>`;
+        } else {
+          const isImprovement = r.lowerIsBetter ? (diff < 0) : (diff > 0);
+          if (isImprovement) {
+            deltaHtml = `<span class="text-emerald-400 font-bold">${diff > 0 ? '+' : ''}${diff}${r.unit} (Improved)</span>`;
+          } else {
+            deltaHtml = `<span class="text-rose-400 font-bold">${diff > 0 ? '+' : ''}${diff}${r.unit} (Vulnerable)</span>`;
+          }
+        }
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 px-3 text-slate-300 font-sans font-medium">${r.label}</td>
+          <td class="py-2 px-3 text-slate-400">${r.a}${r.unit}</td>
+          <td class="py-2 px-3 text-slate-100 font-bold">${r.b}${r.unit}</td>
+          <td class="py-2 px-3 text-right">${deltaHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function downloadAnalyticsCsv() {
+      const csv = "Department,ClickRatePct,CompromiseRatePct,TotalTargets\nIT,4.2,1.1,240\nFinance,34.8,19.4,310\nHR,28.5,14.2,180\nMarketing,21.0,9.5,220\nEngineering,8.6,2.8,340\nExecutive,24.0,16.0,130";
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sme-phish-analytics-${Date.now()}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast("Downloaded security analytics dataset (CSV).", "success");
+    }
+
+    // -------------------------------------------------------------
+    // 10. VIEW 5: TRAINING MODULES & INTERACTIVE SANDBOX
+    // -------------------------------------------------------------
+    async function renderTrainingModules() {
+      const modules = await apiClient.reports.getTrainingProgress();
+      const grid = document.getElementById('training-modules-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      modules.forEach(m => {
+        const card = document.createElement('div');
+        card.className = "bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm space-y-3";
+        card.innerHTML = `
+          <div class="flex items-center justify-between text-[11px] font-mono">
+            <span class="text-blue-400 font-semibold">${m.duration}</span>
+            <span class="text-emerald-400 font-bold">${m.completion}% Completed</span>
+          </div>
+          <h4 class="text-xs font-bold text-slate-200">${m.title}</h4>
+          <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-emerald-400 h-full" style="width: ${m.completion}%"></div>
+          </div>
+          <div class="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1">
+            <span>Avg Quiz: <span class="text-slate-200 font-bold">${m.avg_score}%</span></span>
+            <span>${m.high_risk_assigned} Targets Enrolled</span>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function assignAllHighRiskTraining() {
+      showToast("Automatically assigned 'Credential Harvesting Red Flags' to 6 high-risk employees.", "success");
+      logAuditEvent('TARGET_MUTATION', "Assigned remedial training modules to high-risk group", { targets_assigned: 6, module: "mod2" });
+    }
+
+    // --- Interactive Phishing Interceptor Logic ---
+    let activePortalTheme = 'm365';
+
+    function switchLoginPortalTheme(theme) {
+      activePortalTheme = theme;
+      const btnM365 = document.getElementById('btn-theme-m365');
+      const btnGoogle = document.getElementById('btn-theme-google');
+      const contentM365 = document.getElementById('portal-content-m365');
+      const contentGoogle = document.getElementById('portal-content-google');
+      const fakeUrl = document.getElementById('fake-browser-url');
+
+      if (theme === 'm365') {
+        btnM365.className = "px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition-all";
+        btnGoogle.className = "px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 transition-all";
+        contentM365.classList.remove('hidden');
+        contentGoogle.classList.add('hidden');
+        fakeUrl.textContent = "https://login.microsoft-sso-auth-portal.com/common/oauth2/v2.0/authorize";
+      } else {
+        btnGoogle.className = "px-2.5 py-1 text-xs font-medium rounded-md bg-blue-600 text-white transition-all";
+        btnM365.className = "px-2.5 py-1 text-xs font-medium rounded-md text-slate-400 hover:text-slate-200 transition-all";
+        contentGoogle.classList.remove('hidden');
+        contentM365.classList.add('hidden');
+        fakeUrl.textContent = "https://accounts.google-sso-identity-verify.com/signin/v2/challenge/pwd";
+      }
+      resetInterceptorDemo();
+    }
+
+    function handleFakeCredentialInput(val) {
+      if (val && val.length >= 2) {
+        triggerInterceptorDrillAlert();
+      }
+    }
+
+    function handleFakeSignInClick() {
+      triggerInterceptorDrillAlert();
+    }
+
+    function triggerInterceptorDrillAlert() {
+      const banner = document.getElementById('interceptor-alert-banner');
+      banner.classList.remove('hidden');
+      logAuditEvent('TARGET_MUTATION', "Interactive Sandbox drill compromise intercepted", {
+        portal: activePortalTheme,
+        simulated_result: "Credentials safely intercepted - zero retention",
+        remediation_assigned: true
+      });
+      showToast("Controlled Awareness Alert: Phishing Simulation Drill Intercepted.", "warn");
+    }
+
+    function resetInterceptorDemo() {
+      const banner = document.getElementById('interceptor-alert-banner');
+      banner.classList.add('hidden');
+      const m365Input = document.getElementById('fake-m365-password');
+      const googleInput = document.getElementById('fake-google-password');
+      if (m365Input) m365Input.value = '';
+      if (googleInput) googleInput.value = '';
+    }
+
+    // -------------------------------------------------------------
+    // 11. VIEW 6: AUDIT LOGS & SYSTEM GOVERNANCE
+    // -------------------------------------------------------------
+    async function renderAuditLogs() {
+      const search = document.getElementById('audit-search-input')?.value || '';
+      const filterAction = document.getElementById('audit-action-filter')?.value || 'ALL';
+
+      let logs = await apiClient.audit.getLogs();
+
+      if (search) {
+        const q = search.toLowerCase();
+        logs = logs.filter(l => l.user.toLowerCase().includes(q) || l.action.toLowerCase().includes(q) || l.ip.includes(q) || l.target.toLowerCase().includes(q));
+      }
+
+      if (filterAction !== 'ALL') {
+        logs = logs.filter(l => l.action === filterAction);
+      }
+
+      const tbody = document.getElementById('audit-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      if (logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">No audit records match the query.</td></tr>`;
+        return;
+      }
+
+      logs.forEach(log => {
+        let badgeColor = 'text-blue-400 bg-blue-500/10 border-blue-500/20';
+        if (log.action.includes('DISPATCH') || log.action.includes('FAIL')) {
+          badgeColor = 'text-rose-400 bg-rose-500/10 border-rose-500/20';
+        } else if (log.action.includes('AI')) {
+          badgeColor = 'text-purple-400 bg-purple-500/10 border-purple-500/20';
+        } else if (log.action.includes('CSV')) {
+          badgeColor = 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+        }
+
+        const tr = document.createElement('tr');
+        tr.className = "hover:bg-slate-900/60 transition-colors";
+        tr.innerHTML = `
+          <td class="py-3 px-4 text-slate-400">${log.timestamp}</td>
+          <td class="py-3 px-4 text-slate-200 font-medium">${log.user}</td>
+          <td class="py-3 px-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold border ${badgeColor}">${log.action}</span>
+          </td>
+          <td class="py-3 px-4 text-slate-300 font-sans">${log.target}</td>
+          <td class="py-3 px-4 text-slate-400">${log.ip}</td>
+          <td class="py-3 px-4">
+            <span class="text-emerald-400 font-bold flex items-center gap-1">
+              <i data-lucide="check-circle" class="w-3 h-3"></i> ${log.status}
+            </span>
+          </td>
+          <td class="py-3 px-4 text-right">
+            <button onclick="inspectAuditJson('${log.id}')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-blue-400 font-semibold text-[10px] transition-colors">
+              Inspect JSON
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      refreshLucideIcons();
+    }
+
+    function filterAuditLogs() {
+      renderAuditLogs();
+    }
+
+    function inspectAuditJson(logId) {
+      const log = window.AppMockState.auditLogs.find(l => l.id === logId);
+      if (!log) return;
+      document.getElementById('audit-json-hash').textContent = `0x${logId}${Math.random().toString(16).slice(2, 8)}`;
+      document.getElementById('audit-json-viewer').textContent = JSON.stringify(log, null, 2);
+      openModal('modal-audit-json');
+    }
+
+    function copyAuditJson() {
+      const text = document.getElementById('audit-json-viewer').textContent;
+      navigator.clipboard.writeText(text);
+      showToast("Audit JSON copied to clipboard.", "info");
+    }
+
+    function exportAuditLogsJson() {
+      const jsonStr = JSON.stringify(window.AppMockState.auditLogs, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sme-phish-audit-ledger-${Date.now()}.json`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast("Exported immutable audit logs JSON ledger.", "success");
+    }
+
+    // -------------------------------------------------------------
+    // 12. AI RISK REPORT MODAL & EXECUTIVE PDF EXPORT
+    // -------------------------------------------------------------
+    async function triggerAiRiskAssessment() {
+      const report = await apiClient.ai.getRiskAnalysis();
+      document.getElementById('ai-risk-exec-summary').textContent = report.executive_summary;
+
+      const offendersList = document.getElementById('ai-risk-offenders-list');
+      offendersList.innerHTML = '';
+
+      report.high_risk_offenders.forEach(emp => {
+        const item = document.createElement('div');
+        item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between text-xs";
+        item.innerHTML = `
+          <div>
+            <div class="font-medium text-slate-200">${emp.name} (${emp.department})</div>
+            <div class="text-[10px] text-slate-400 font-mono">${emp.email} &bull; Failed ${emp.failed} of ${emp.sent} drills</div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+            Score: ${emp.risk_score}
+          </span>
+        `;
+        offendersList.appendChild(item);
+      });
+
+      openModal('modal-ai-risk-report');
+      showToast("Gemini autonomous threat evaluation generated.", "success");
+    }
+
+    function exportExecutivePdf() {
+      showToast("Compiling Executive SOC Summary Report...", "info");
+      setTimeout(() => {
+        const sampleReport = `
+PHISH-DEFENSE SME SOC EXECUTIVE AUDIT REPORT
+Generated: ${new Date().toISOString()}
+Target Organization: SME Enterprise (Evaluated Endpoints: 1,420)
+Org Compromise Rate: 11.8%
+Remediation Rate: 88.5%
+Top Vulnerability: Financial pretexts & lookalike authentication portals.
+Autonomous Action: Mandatory micro-curriculum deployed.
+        `;
+        const blob = new Blob([sampleReport], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `executive-phish-defense-report-${Date.now()}.txt`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        showToast("Executive Briefing Report generated and downloaded.", "success");
+      }, 500);
+    }
+
+    // -------------------------------------------------------------
+    // 13. MODAL & TOAST NOTIFICATION HELPERS
+    // -------------------------------------------------------------
+    function openModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.remove('hidden');
+      refreshLucideIcons();
+    }
+
+    function closeModal(id) {
+      const modal = document.getElementById(id);
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+
+      const toast = document.createElement('div');
+      let borderClass = 'border-blue-500/40 text-blue-200';
+      let icon = 'info';
+
+      if (type === 'success') {
+        borderClass = 'border-emerald-500/40 text-emerald-200';
+        icon = 'check-circle';
+      } else if (type === 'warn') {
+        borderClass = 'border-amber-500/40 text-amber-200';
+        icon = 'alert-triangle';
+      } else if (type === 'danger') {
+        borderClass = 'border-rose-500/40 text-rose-200';
+        icon = 'alert-circle';
+      }
+
+      toast.className = `p-3 rounded-xl bg-slate-900/95 border ${borderClass} shadow-2xl flex items-center gap-2.5 text-xs max-w-sm pointer-events-auto transform transition-all duration-200 animate-in fade-in slide-in-from-bottom-2`;
+      toast.innerHTML = `
+        <i data-lucide="${icon}" class="w-4 h-4 shrink-0"></i>
+        <div class="flex-1">${message}</div>
+      `;
+
+      container.appendChild(toast);
+      refreshLucideIcons();
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 250);
+      }, 3500);
+    }
+
+    function toggleNotificationPanel() {
+      const p = document.getElementById('notification-panel');
+      p.classList.toggle('hidden');
+    }
+
+    function clearNotifications() {
+      const list = document.getElementById('notification-list');
+      list.innerHTML = `<div class="p-3 text-center text-slate-500 text-[11px]">No active telemetry alerts.</div>`;
+    }
+
+    // -------------------------------------------------------------
+    // 14. INITIAL BOOTSTRAP ON LOAD
+    // -------------------------------------------------------------
+    window.addEventListener('DOMContentLoaded', () => {
+      switchTab('overview');
+      refreshLucideIcons();
+    });
+  </script>
+</body>
+</html>
