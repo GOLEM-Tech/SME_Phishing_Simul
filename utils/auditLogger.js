@@ -3,7 +3,7 @@ const pool = require('../config/db');
 /**
  * Log an administrative event to AuditLogs
  * @param {number|null} userId - The admin's user ID from req.user
- * @param {string} action - Brief description (e.g., 'EMPLOYEE_CREATED', 'CSV_IMPORTED')
+ * @param {string} action - Brief description (e.g., 'POST /api/employees')
  * @param {string|object} details - Metadata or context about the action
  * @param {string} ipAddress - Client IP
  */
