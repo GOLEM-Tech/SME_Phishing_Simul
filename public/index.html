@@ -35,7 +35,9 @@
     <span id="globalToastText">Notification</span>
   </div>
 
-  <!-- VIEW 1: USER LOGIN -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 1: USER LOGIN PAGE (WITH OAUTH ICONS + ADMIN PORTAL BUTTON)      -->
+  <!-- ===================================================================== -->
   <main id="viewUserLogin" class="flex-1 flex items-center justify-center p-6">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6">
       <div class="flex items-center space-x-3.5">
@@ -109,7 +111,9 @@
     </div>
   </main>
 
-  <!-- VIEW 2: DEDICATED ADMIN LOGIN -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 2: DEDICATED ADMIN LOGIN                                         -->
+  <!-- ===================================================================== -->
   <main id="viewAdminLogin" class="hidden flex-1 flex items-center justify-center p-6">
     <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/40 rounded-2xl p-8 shadow-2xl space-y-6">
       <div class="flex items-center justify-between">
@@ -144,7 +148,9 @@
     </div>
   </main>
 
-  <!-- VIEW 3: TOKEN PASSWORD RESET -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 3: TOKEN PASSWORD RESET                                          -->
+  <!-- ===================================================================== -->
   <main id="viewResetPassword" class="hidden flex-1 flex items-center justify-center p-6">
     <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5 text-sm">
       <div class="flex items-center justify-between">
@@ -172,7 +178,9 @@
     </div>
   </main>
 
-  <!-- VIEW 6: OAUTH EMPLOYEE DEPARTMENT ONBOARDING & PENDING APPROVAL SCREEN -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 6: OAUTH EMPLOYEE DEPARTMENT ONBOARDING & PENDING APPROVAL       -->
+  <!-- ===================================================================== -->
   <main id="viewOAuthOnboarding" class="hidden flex-1 flex items-center justify-center p-6">
     <div class="w-full max-w-md bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-8 shadow-2xl space-y-6 text-sm">
       <div class="flex items-center justify-between">
@@ -187,7 +195,6 @@
         <p class="text-slate-400 mt-1">Your OAuth account is not an administrator. Select your corporate department below to request access from an Admin.</p>
       </div>
 
-      <!-- Step A: Choose Department Form -->
       <form id="oauthOnboardingForm" class="space-y-4">
         <div>
           <label class="block text-slate-400 mb-1">OAuth Display Name</label>
@@ -215,7 +222,6 @@
         </button>
       </form>
 
-      <!-- Step B: Pending Approval Notice -->
       <div id="oauthPendingNotice" class="hidden p-5 bg-amber-950/30 border border-amber-500/30 rounded-xl space-y-2 text-center">
         <p class="text-amber-400 font-bold text-base">⏳ Awaiting Administrator Approval</p>
         <p class="text-slate-300 text-xs leading-relaxed">
@@ -225,7 +231,9 @@
     </div>
   </main>
 
-  <!-- VIEW 4: ADMIN SHELL -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 4: ADMIN SOC MULTI-PAGE SHELL                                    -->
+  <!-- ===================================================================== -->
   <div id="viewAdminShell" class="hidden flex-1 flex min-h-screen overflow-hidden">
     <!-- Sidebar -->
     <aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-6 shrink-0">
@@ -241,9 +249,11 @@
         </div>
 
         <nav class="space-y-2 text-sm">
-          <button type="button" data-admin-nav="pageAnalytics" class="admin-nav-btn w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center space-x-3 transition text-left">
-            <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
-            <span>Analytics & Reports</span>
+          <button type="button" data-admin-nav="pageAnalytics" class="admin-nav-btn w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-between transition text-left">
+            <span class="flex items-center space-x-3">
+              <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+              <span>Analytics & Reports</span>
+            </span>
           </button>
           <button type="button" data-admin-nav="pageEmployees" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left">
             <span class="flex items-center space-x-3">
@@ -252,13 +262,17 @@
             </span>
             <span id="pendingNavBadge" class="hidden px-2 py-0.5 bg-amber-500 text-slate-950 rounded-full text-xs font-extrabold">0</span>
           </button>
-          <button type="button" data-admin-nav="pageCampaigns" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center space-x-3 transition text-left">
-            <i data-lucide="send" class="w-5 h-5"></i>
-            <span>Campaigns & Mailer</span>
+          <button type="button" data-admin-nav="pageCampaigns" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left">
+            <span class="flex items-center space-x-3">
+              <i data-lucide="send" class="w-5 h-5"></i>
+              <span>Campaigns & Mailer</span>
+            </span>
           </button>
-          <button type="button" data-admin-nav="pageAwareness" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center space-x-3 transition text-left">
-            <i data-lucide="graduation-cap" class="w-5 h-5"></i>
-            <span>Awareness & Quizzes</span>
+          <button type="button" data-admin-nav="pageAwareness" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left">
+            <span class="flex items-center space-x-3">
+              <i data-lucide="graduation-cap" class="w-5 h-5"></i>
+              <span>Awareness & Quizzes</span>
+            </span>
           </button>
         </nav>
       </div>
@@ -409,20 +423,21 @@
         </div>
       </section>
 
-      <!-- PAGE 2: EMPLOYEES + PENDING OAUTH APPROVALS -->
+      <!-- PAGE 2: EMPLOYEES + PENDING OAUTH APPROVALS + 4-TIER RISK FILTER -->
       <section id="pageEmployees" class="admin-page hidden space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h2 class="text-2xl font-bold text-white">Employee Directory & OAuth Approvals</h2>
-            <p class="text-sm text-slate-400 mt-1">Approve or ignore new OAuth employee sign-ups, or manage the active target directory</p>
+            <p class="text-sm text-slate-400 mt-1">Behavioral Risk Scoring: Perfect (0%) | Low (15% Opened) | High (40% Clicked) | CRITICAL (100% Submitted)</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <input type="text" id="rosterSearchInput" placeholder="Search name or email..." class="bg-slate-900 border border-slate-700 text-sm px-4 py-2.5 rounded-xl text-white focus:outline-none" />
             <select id="rosterRiskFilter" class="bg-slate-900 border border-slate-700 text-sm px-4 py-2.5 rounded-xl text-white focus:outline-none">
               <option value="">All Risk Levels</option>
-              <option value="Low">Low Risk</option>
-              <option value="Medium">Medium Risk</option>
-              <option value="High">High Risk</option>
+              <option value="Perfect (0% Risk)">Perfect (0% Risk) — Not Opened</option>
+              <option value="Low (15% Risk)">Low (15% Risk) — Opened Only</option>
+              <option value="High (40% Risk)">High (40% Risk) — Clicked Link</option>
+              <option value="CRITICAL VERY HIGH (100% Risk)">CRITICAL VERY HIGH (100% Risk) — Compromised</option>
             </select>
             <button type="button" id="openAddEmployeeModalBtn" class="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl flex items-center space-x-2 transition">
               <i data-lucide="user-plus" class="w-4 h-4"></i>
@@ -435,7 +450,7 @@
           </div>
         </div>
 
-        <!-- NEW: PENDING OAUTH EMPLOYEE APPROVALS SECTION -->
+        <!-- PENDING OAUTH EMPLOYEE APPROVALS SECTION -->
         <div id="pendingOAuthSection" class="bg-slate-900 border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-lg">
           <div class="px-6 py-4 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
             <div class="flex items-center space-x-2.5">
@@ -469,7 +484,7 @@
                 <tr>
                   <th class="py-4 px-5">Employee Name & Email</th>
                   <th class="py-4 px-5">Department</th>
-                  <th class="py-4 px-5">Risk Status</th>
+                  <th class="py-4 px-5">Behavioral Risk Score</th>
                   <th class="py-4 px-5">Enrolled Date</th>
                   <th class="py-4 px-5 text-right">Actions</th>
                 </tr>
@@ -489,7 +504,7 @@
         </div>
       </section>
 
-      <!-- PAGE 3: CAMPAIGNS -->
+      <!-- PAGE 3: CAMPAIGNS + 5 CLONED LANDING PREVIEWS -->
       <section id="pageCampaigns" class="admin-page hidden space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -512,7 +527,7 @@
           <div class="flex items-center justify-between">
             <h3 class="text-base font-bold text-blue-400 flex items-center space-x-2">
               <i data-lucide="mail" class="w-5 h-5"></i>
-              <span>Active SMTP Mask & Alias Configuration</span>
+              <span>Active SMTP Mask, Alias & Landing Clone Configuration</span>
             </h3>
             <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-semibold">
               Relay: spotifykaemailaddress@gmail.com
@@ -528,10 +543,13 @@
               <input type="text" id="customSenderAlias" value="ms365-security" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-emerald-400 font-mono" />
             </div>
             <div>
-              <label class="block text-slate-400 mb-1">Target Landing Clone Preview</label>
-              <div class="flex space-x-2">
-                <a href="/login/office365?token=preview-token" target="_blank" class="flex-1 py-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-center text-blue-400 font-medium">Preview Office 365</a>
-                <a href="/login/gmail?token=preview-token" target="_blank" class="flex-1 py-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-center text-rose-400 font-medium">Preview Gmail</a>
+              <label class="block text-slate-400 mb-1">Target Landing Clone Previews (Click to Test)</label>
+              <div class="flex flex-wrap gap-1.5 text-xs pt-0.5">
+                <a href="/login/office365?token=preview" target="_blank" class="px-2.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-blue-400 font-semibold">Office 365</a>
+                <a href="/login/gmail?token=preview" target="_blank" class="px-2.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-rose-400 font-semibold">Google</a>
+                <a href="/login/axisbank?token=preview" target="_blank" class="px-2.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-pink-400 font-semibold">Axis Bank</a>
+                <a href="/login/jio?token=preview" target="_blank" class="px-2.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-indigo-400 font-semibold">Jio 5G SIM</a>
+                <a href="/login/mrbreast?token=preview" target="_blank" class="px-2.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg text-cyan-400 font-semibold">MrBreast</a>
               </div>
             </div>
           </div>
@@ -544,7 +562,7 @@
                 <tr>
                   <th class="py-4 px-5">Campaign Name</th>
                   <th class="py-4 px-5">Status</th>
-                  <th class="py-4 px-5">Template Linked</th>
+                  <th class="py-4 px-5">Template & Landing Page</th>
                   <th class="py-4 px-5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -584,7 +602,7 @@
               <select id="assignTargetType" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white">
                 <option value="employee">Specific Employee</option>
                 <option value="department">Entire Department</option>
-                <option value="high_risk">All High-Risk Employees</option>
+                <option value="high_risk">All High / Critical Risk Employees (40% & 100%)</option>
               </select>
             </div>
             <div id="assignEmployeeBox">
@@ -684,7 +702,9 @@
     </div>
   </div>
 
-  <!-- VIEW 5: EMPLOYEE PORTAL -->
+  <!-- ===================================================================== -->
+  <!-- VIEW 5: EMPLOYEE PERSONAL PORTAL                                      -->
+  <!-- ===================================================================== -->
   <main id="viewEmployeePortal" class="hidden flex-1 flex flex-col p-8 max-w-5xl mx-auto w-full space-y-8">
     <header class="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center space-x-4">
@@ -705,8 +725,10 @@
 
     <section class="grid grid-cols-1 md:grid-cols-3 gap-5">
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-        <span class="text-sm text-slate-400 font-medium">My Current Risk Status</span>
-        <p id="empContextRisk" class="text-2xl font-bold text-white mt-2">Low</p>
+        <span class="text-sm text-slate-400 font-medium">My Behavioral Risk Score</span>
+        <div class="mt-2">
+          <span id="empContextRisk" class="inline-block px-3.5 py-1.5 rounded-full text-sm font-bold">Perfect (0% Risk)</span>
+        </div>
       </div>
       <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
         <span class="text-sm text-slate-400 font-medium">Assigned Department</span>
@@ -741,7 +763,9 @@
     </section>
   </main>
 
-  <!-- MODALS -->
+  <!-- ===================================================================== -->
+  <!-- MODALS                                                                -->
+  <!-- ===================================================================== -->
   <div id="addEmployeeModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-sm">
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -766,6 +790,7 @@
     </div>
   </div>
 
+  <!-- NEW CAMPAIGN MODAL WITH ALL 5 LANDING PAGE CLONES -->
   <div id="newCampaignModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl text-sm">
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">
@@ -789,8 +814,11 @@
           <div>
             <label class="block text-slate-400 mb-1">Landing Page Clone</label>
             <select id="campLandingSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white">
-              <option value="1">Office 365 Clone</option>
-              <option value="2">Google Workspace Clone</option>
+              <option value="1">1. Microsoft Office 365 Clone</option>
+              <option value="2">2. Google Workspace Clone</option>
+              <option value="3">3. Axis Bank NetBanking Clone</option>
+              <option value="4">4. Jio 5G SIM e-KYC Clone</option>
+              <option value="5">5. MrBreast YouTube Collab Clone</option>
             </select>
           </div>
         </div>

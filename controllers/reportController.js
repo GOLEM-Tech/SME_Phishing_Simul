@@ -33,12 +33,12 @@ const recipientEventsSql = `
     e.department,
     e.risk_level,
     MAX(CASE WHEN ee.event_type = 'Delivered' THEN 1 ELSE 0 END) AS delivered,
-    MAX(CASE WHEN ee.event_type = 'Opened' THEN 1 ELSE 0 END) AS opened,
-    MAX(CASE WHEN ee.event_type = 'Clicked' THEN 1 ELSE 0 END) AS clicked,
+    MAX(CASE WHEN ee.event_type IN ('Opened', 'Clicked', 'Submitted') THEN 1 ELSE 0 END) AS opened,
+    MAX(CASE WHEN ee.event_type IN ('Clicked', 'Submitted') THEN 1 ELSE 0 END) AS clicked,
     MAX(CASE WHEN ee.event_type = 'Submitted' THEN 1 ELSE 0 END) AS submitted,
     MIN(CASE WHEN ee.event_type = 'Delivered' THEN ee.created_at END) AS delivered_at,
-    MIN(CASE WHEN ee.event_type = 'Opened' THEN ee.created_at END) AS opened_at,
-    MIN(CASE WHEN ee.event_type = 'Clicked' THEN ee.created_at END) AS clicked_at,
+    MIN(CASE WHEN ee.event_type IN ('Opened', 'Clicked', 'Submitted') THEN ee.created_at END) AS opened_at,
+    MIN(CASE WHEN ee.event_type IN ('Clicked', 'Submitted') THEN ee.created_at END) AS clicked_at,
     MIN(CASE WHEN ee.event_type = 'Submitted' THEN ee.created_at END) AS submitted_at
   FROM CampaignRecipients cr
   INNER JOIN Employees e ON e.id = cr.employee_id
@@ -56,7 +56,7 @@ const recipientEventsSql = `
 `;
 
 /**
- * Helper to fetch aggregated campaign statistics and click audit data.
+ * Helper to fetch aggregated campaign statistics and full recipient reaction audit data.
  */
 const fetchCampaignStatistics = async (campaignId) => {
   const [campaignRows] = await pool.execute(
@@ -68,7 +68,7 @@ const fetchCampaignStatistics = async (campaignId) => {
     return null;
   }
 
-  const [metricRows, departmentRows, clickAuditRows] = await Promise.all([
+  const [metricRows, departmentRows, recipientAuditRows] = await Promise.all([
     pool.execute(`
       SELECT
         COUNT(*) AS total_recipients,
@@ -104,12 +104,14 @@ const fetchCampaignStatistics = async (campaignId) => {
         employee_email,
         department,
         risk_level,
+        opened,
+        opened_at,
+        clicked,
         clicked_at,
         submitted,
         submitted_at
       FROM (${recipientEventsSql}) AS recipient_events
-      WHERE clicked = 1 OR submitted = 1
-      ORDER BY submitted DESC, clicked_at ASC, employee_name ASC
+      ORDER BY submitted DESC, clicked DESC, opened DESC, employee_name ASC
     `, [campaignId])
   ]);
 
@@ -134,39 +136,59 @@ const fetchCampaignStatistics = async (campaignId) => {
 
   const departments = departmentRows[0].map((row) => {
     const totalSent = asNumber(row.total_sent);
-    const compromised = asNumber(row.compromised);
+    const opened = asNumber(row.opened);
     const clicked = asNumber(row.clicked);
+    const compromised = asNumber(row.compromised);
 
     return {
       department: row.department || 'General',
       totalRecipients: asNumber(row.total_recipients),
       totalSent,
       delivered: asNumber(row.delivered),
-      opened: asNumber(row.opened),
+      opened,
       clicked,
       compromised,
       ignored: asNumber(row.ignored),
-      failureRate: percentage(compromised, totalSent),
-      clickRate: percentage(clicked, totalSent)
+      openRate: percentage(opened, totalSent),
+      clickRate: percentage(clicked, totalSent),
+      failureRate: percentage(compromised, totalSent)
     };
   });
 
-  const clickAudits = clickAuditRows[0].map((row) => ({
-    name: row.employee_name,
-    email: row.employee_email,
-    department: row.department || 'General',
-    riskLevel: row.risk_level || 'Low',
-    clickedAt: row.clicked_at ? new Date(row.clicked_at).toLocaleString() : 'Recorded',
-    submitted: row.submitted === 1,
-    submittedAt: row.submitted_at ? new Date(row.submitted_at).toLocaleString() : 'N/A'
-  }));
+  const recipientAudits = recipientAuditRows[0].map((row) => {
+    const isSubmitted = Number(row.submitted) === 1;
+    const isClicked = Number(row.clicked) === 1;
+    const isOpened = Number(row.opened) === 1;
+
+    let reactionLabel = '[PERFECT 0% RISK] Unopened';
+    if (isSubmitted) {
+      reactionLabel = '[CRITICAL 100% RISK] Compromised';
+    } else if (isClicked) {
+      reactionLabel = '[HIGH 40% RISK] Clicked Link';
+    } else if (isOpened) {
+      reactionLabel = '[LOW 15% RISK] Opened Only';
+    }
+
+    return {
+      name: row.employee_name,
+      email: row.employee_email,
+      department: row.department || 'General',
+      opened: isOpened,
+      openedAt: row.opened_at ? new Date(row.opened_at).toLocaleString() : 'Not Opened',
+      clicked: isClicked,
+      clickedAt: row.clicked_at ? new Date(row.clicked_at).toLocaleString() : 'No Click',
+      submitted: isSubmitted,
+      submittedAt: row.submitted_at ? new Date(row.submitted_at).toLocaleString() : 'N/A',
+      reactionLabel
+    };
+  });
 
   return {
     campaign: campaignRows[0],
     metrics,
     rates,
     departments,
-    clickAudits
+    recipientAudits
   };
 };
 
@@ -251,33 +273,28 @@ exports.exportCampaignCSV = async (req, res) => {
       'Employee Name',
       'Employee Email',
       'Department',
-      'Risk Level',
+      'Behavioral Risk Score',
       'Sent At',
-      'Overall Status',
+      'Overall Reaction',
       'Delivered',
-      'Delivered At',
-      'Opened',
+      'Opened Email',
       'Opened At',
-      'Clicked',
+      'Clicked Link',
       'Clicked At',
-      'Compromised',
+      'Compromised (Submitted)',
       'Compromised At'
     ];
 
     res.write(headers.join(',') + '\r\n');
 
     for (const r of recipients) {
-      let overallStatus = 'Pending';
-      if (r.submitted === 1) {
-        overallStatus = 'Compromised';
-      } else if (r.clicked === 1) {
-        overallStatus = 'Clicked';
-      } else if (r.opened === 1) {
-        overallStatus = 'Opened';
-      } else if (r.delivered === 1) {
-        overallStatus = 'Delivered';
-      } else if (r.sent_at) {
-        overallStatus = 'Sent';
+      let overallStatus = 'Perfect (0% Risk) - Unopened';
+      if (Number(r.submitted) === 1) {
+        overallStatus = 'CRITICAL VERY HIGH (100% Risk) - Compromised';
+      } else if (Number(r.clicked) === 1) {
+        overallStatus = 'High (40% Risk) - Clicked Link';
+      } else if (Number(r.opened) === 1) {
+        overallStatus = 'Low (15% Risk) - Opened Only';
       }
 
       const row = [
@@ -286,16 +303,15 @@ exports.exportCampaignCSV = async (req, res) => {
         escapeCsvField(r.employee_name),
         escapeCsvField(r.employee_email),
         escapeCsvField(r.department || 'General'),
-        escapeCsvField(r.risk_level || 'Low'),
+        escapeCsvField(r.risk_level || overallStatus),
         escapeCsvField(r.sent_at ? new Date(r.sent_at).toISOString() : 'N/A'),
         escapeCsvField(overallStatus),
-        escapeCsvField(r.delivered === 1 ? 'Yes' : 'No'),
-        escapeCsvField(r.delivered_at ? new Date(r.delivered_at).toISOString() : 'N/A'),
-        escapeCsvField(r.opened === 1 ? 'Yes' : 'No'),
-        escapeCsvField(r.opened_at ? new Date(r.opened_at).toISOString() : 'N/A'),
-        escapeCsvField(r.clicked === 1 ? 'Yes' : 'No'),
-        escapeCsvField(r.clicked_at ? new Date(r.clicked_at).toISOString() : 'N/A'),
-        escapeCsvField(r.submitted === 1 ? 'Yes' : 'No'),
+        escapeCsvField(Number(r.delivered) === 1 ? 'Yes' : 'No'),
+        escapeCsvField(Number(r.opened) === 1 ? 'Yes' : 'No'),
+        escapeCsvField(r.opened_at ? new Date(r.opened_at).toISOString() : 'Not Opened'),
+        escapeCsvField(Number(r.clicked) === 1 ? 'Yes' : 'No'),
+        escapeCsvField(r.clicked_at ? new Date(r.clicked_at).toISOString() : 'No Click'),
+        escapeCsvField(Number(r.submitted) === 1 ? 'Yes' : 'No'),
         escapeCsvField(r.submitted_at ? new Date(r.submitted_at).toISOString() : 'N/A')
       ];
 
@@ -317,7 +333,8 @@ exports.exportCampaignCSV = async (req, res) => {
 
 /**
  * GET /api/reports/campaign/:id/pdf
- * Generates an executive security evaluation audit report using Times New Roman.
+ * Generates an executive security evaluation audit report in Times New Roman,
+ * showing Email Opens, Link Clicks, Compromises, and 4-Tier Behavioral Risk Scores.
  */
 exports.exportCampaignPDF = async (req, res) => {
   const campaignId = Number.parseInt(req.params.id, 10);
@@ -339,7 +356,7 @@ exports.exportCampaignPDF = async (req, res) => {
       });
     }
 
-    const { campaign, metrics, rates, departments, clickAudits } = reportData;
+    const { campaign, metrics, rates, departments, recipientAudits } = reportData;
     const sanitizedCampaignName = campaign.name.replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `campaign_${campaign.id}_${sanitizedCampaignName}_report.pdf`;
 
@@ -410,9 +427,9 @@ exports.exportCampaignPDF = async (req, res) => {
     doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
 
     doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
-    doc.text('METRIC STAGE', startX + 12, curY + 6);
-    doc.text('RECIPIENT COUNT', startX + 240, curY + 6);
-    doc.text('CONVERSION RATE (% OF SENT)', startX + 370, curY + 6);
+    doc.text('METRIC STAGE & RISK TIER', startX + 12, curY + 6);
+    doc.text('RECIPIENT COUNT', startX + 260, curY + 6);
+    doc.text('RATE (% OF SENT)', startX + 390, curY + 6);
 
     curY += 20;
 
@@ -420,10 +437,10 @@ exports.exportCampaignPDF = async (req, res) => {
       ['Total Targets / Recipient Pool', metrics.totalRecipients, '100%'],
       ['Simulations Dispatched', metrics.totalSent, `${percentage(metrics.totalSent, metrics.totalRecipients)}%`],
       ['Delivered (MTA Confirmed)', metrics.delivered, `${rates.deliveryRate}%`],
-      ['Opened (1x1 Transparent Pixel)', metrics.opened, `${rates.openRate}%`],
-      ['Clicked (Link Interceptor Triggered)', metrics.clicked, `${rates.clickRate}%`],
-      ['Compromised (Plaintext Payload Submitted)', metrics.compromised, `${rates.compromiseRate}%`],
-      ['Ignored / Security Resilient', metrics.ignored, `${rates.ignoredRate}%`]
+      ['Unopened / Ignored -> Perfect (0% Risk)', metrics.ignored, `${rates.ignoredRate}%`],
+      ['Opened Email (1x1 Pixel) -> Low (15% Risk)', metrics.opened, `${rates.openRate}%`],
+      ['Clicked Phishing Link -> High (40% Risk)', metrics.clicked, `${rates.clickRate}%`],
+      ['Submitted Credentials -> CRITICAL (100% Risk)', metrics.compromised, `${rates.compromiseRate}%`]
     ];
 
     summaryRows.forEach((row, idx) => {
@@ -433,12 +450,14 @@ exports.exportCampaignPDF = async (req, res) => {
 
       doc.font('Times-Roman').fontSize(9).fillColor('#1E293B');
       doc.text(String(row[0]), startX + 12, curY + 5);
-      doc.text(String(row[1]), startX + 240, curY + 5);
+      doc.text(String(row[1]), startX + 260, curY + 5);
 
-      if (idx === 5 && metrics.compromised > 0) {
-        doc.font('Times-Bold').fillColor('#B91C1C').text(String(row[2]), startX + 370, curY + 5);
+      if (idx === 6 && metrics.compromised > 0) {
+        doc.font('Times-Bold').fillColor('#B91C1C').text(String(row[2]), startX + 390, curY + 5);
+      } else if (idx === 4 && metrics.opened > 0) {
+        doc.font('Times-Bold').fillColor('#047857').text(String(row[2]), startX + 390, curY + 5);
       } else {
-        doc.text(String(row[2]), startX + 370, curY + 5);
+        doc.text(String(row[2]), startX + 390, curY + 5);
       }
       curY += 18;
     });
@@ -446,10 +465,10 @@ exports.exportCampaignPDF = async (req, res) => {
     doc.y = curY + 16;
 
     // ==========================================
-    // 3. DEPARTMENTAL RISK BREAKDOWN
+    // 3. DEPARTMENTAL RISK BREAKDOWN (WITH OPENED COLUMN)
     // ==========================================
     checkPageBreak(120);
-    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('3. Departmental Risk Breakdown', startX);
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('3. Departmental Risk Breakdown (Opens, Clicks & Compromises)', startX);
     doc.moveDown(0.4);
 
     curY = doc.y;
@@ -457,11 +476,11 @@ exports.exportCampaignPDF = async (req, res) => {
     doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
 
     doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
-    doc.text('DEPARTMENT', startX + 12, curY + 6);
-    doc.text('TARGETS', startX + 150, curY + 6);
-    doc.text('CLICKED', startX + 230, curY + 6);
-    doc.text('COMPROMISED', startX + 320, curY + 6);
-    doc.text('FAILURE RATE', startX + 420, curY + 6);
+    doc.text('DEPARTMENT', startX + 10, curY + 6);
+    doc.text('SENT', startX + 135, curY + 6);
+    doc.text('OPENED (15%)', startX + 195, curY + 6);
+    doc.text('CLICKED (40%)', startX + 285, curY + 6);
+    doc.text('COMPROMISED (100%)', startX + 370, curY + 6);
 
     curY += 20;
 
@@ -474,16 +493,15 @@ exports.exportCampaignPDF = async (req, res) => {
       doc.rect(startX, curY, tableWidth, 18).strokeColor('#E2E8F0').lineWidth(0.5).stroke();
 
       doc.font('Times-Roman').fontSize(9).fillColor('#1E293B');
-      doc.text(dept.department, startX + 12, curY + 5);
-      doc.text(String(dept.totalSent), startX + 150, curY + 5);
-      doc.text(String(dept.clicked), startX + 230, curY + 5);
+      doc.text(dept.department, startX + 10, curY + 5);
+      doc.text(String(dept.totalSent), startX + 135, curY + 5);
+      doc.text(`${dept.opened} (${dept.openRate}%)`, startX + 195, curY + 5);
+      doc.text(`${dept.clicked} (${dept.clickRate}%)`, startX + 285, curY + 5);
 
       if (dept.compromised > 0) {
-        doc.font('Times-Bold').fillColor('#B91C1C').text(String(dept.compromised), startX + 320, curY + 5);
-        doc.text(`${dept.failureRate}%`, startX + 420, curY + 5);
+        doc.font('Times-Bold').fillColor('#B91C1C').text(`${dept.compromised} (${dept.failureRate}%)`, startX + 370, curY + 5);
       } else {
-        doc.fillColor('#047857').text('0', startX + 320, curY + 5);
-        doc.text('0.00%', startX + 420, curY + 5);
+        doc.fillColor('#047857').text('0 (0%)', startX + 370, curY + 5);
       }
       curY += 18;
       doc.y = curY;
@@ -492,50 +510,60 @@ exports.exportCampaignPDF = async (req, res) => {
     doc.y = curY + 18;
 
     // ==========================================
-    // 4. TARGET INTERCEPTION & COMPROMISE ROSTER
+    // 4. COMPLETE EMPLOYEE REACTION & EMAIL OPEN ROSTER
     // ==========================================
     checkPageBreak(140);
-    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('4. Target Interception & Compromise Audit', startX);
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('4. Employee Email Reaction & Behavioral Risk Audit', startX);
     doc.moveDown(0.3);
     doc.font('Times-Italic').fontSize(9).fillColor('#475569')
-       .text('Personnel who triggered links or entered credentials on simulated clones:');
+       .text('Complete log of whether each employee opened the email, clicked the link, or submitted credentials:');
     doc.moveDown(0.5);
 
-    if (clickAudits.length === 0) {
-      doc.font('Times-Bold').fontSize(10).fillColor('#047857')
-         .text('100% RESILIENCE ACHIEVED: Zero personnel clicked or submitted credentials.');
+    if (recipientAudits.length === 0) {
+      doc.font('Times-Bold').fontSize(10).fillColor('#64748B')
+         .text('No recipients enrolled in this campaign yet.');
       doc.moveDown(1.5);
     } else {
       curY = doc.y;
       doc.rect(startX, curY, tableWidth, 20).fill('#E2E8F0');
       doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
 
-      doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
-      doc.text('EMPLOYEE NAME', startX + 10, curY + 6);
-      doc.text('DEPARTMENT', startX + 140, curY + 6);
-      doc.text('INTERACTION TIMESTAMP', startX + 235, curY + 6);
-      doc.text('SEVERITY / BREACH STATUS', startX + 370, curY + 6);
+      doc.font('Times-Bold').fontSize(8.5).fillColor('#0F172A');
+      doc.text('EMPLOYEE & DEPT', startX + 8, curY + 6);
+      doc.text('OPENED EMAIL?', startX + 145, curY + 6);
+      doc.text('CLICKED LINK?', startX + 255, curY + 6);
+      doc.text('BEHAVIORAL RISK ASSESSMENT', startX + 350, curY + 6);
 
       curY += 20;
 
-      clickAudits.forEach((aud, idx) => {
+      recipientAudits.forEach((aud, idx) => {
         checkPageBreak(24);
         curY = doc.y;
 
-        const rowBg = aud.submitted ? '#FEF2F2' : (idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF');
+        const rowBg = aud.submitted ? '#FEF2F2' : (aud.clicked ? '#FFFBEB' : (idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF'));
         doc.rect(startX, curY, tableWidth, 20).fill(rowBg);
         doc.rect(startX, curY, tableWidth, 20).strokeColor(aud.submitted ? '#FCA5A5' : '#E2E8F0').lineWidth(0.5).stroke();
 
-        doc.font(aud.submitted ? 'Times-Bold' : 'Times-Roman').fontSize(9).fillColor(aud.submitted ? '#7F1D1D' : '#1E293B');
-        doc.text(aud.name, startX + 10, curY + 5, { width: 125, ellipsis: true });
-        doc.font('Times-Roman').text(aud.department, startX + 140, curY + 5, { width: 90, ellipsis: true });
-        doc.text(aud.clickedAt, startX + 235, curY + 5, { width: 130, ellipsis: true });
+        doc.font(aud.submitted ? 'Times-Bold' : 'Times-Roman').fontSize(8.5).fillColor(aud.submitted ? '#7F1D1D' : '#1E293B');
+        doc.text(`${aud.name} (${aud.department})`, startX + 8, curY + 6, { width: 132, ellipsis: true });
 
-        // SEVERE FORMATTING FOR COMPROMISED PROFILES
+        // OPENED EMAIL COLUMN
+        doc.font('Times-Roman').fillColor(aud.opened ? '#0F172A' : '#64748B');
+        doc.text(aud.opened ? `Yes (${aud.openedAt})` : 'No (Unopened)', startX + 145, curY + 6, { width: 105, ellipsis: true });
+
+        // CLICKED LINK COLUMN
+        doc.fillColor(aud.clicked ? '#B45309' : '#64748B');
+        doc.text(aud.clicked ? `Yes (${aud.clickedAt})` : 'No Click', startX + 255, curY + 6, { width: 90, ellipsis: true });
+
+        // 4-TIER BEHAVIORAL RISK SCORE COLUMN
         if (aud.submitted) {
-          doc.font('Times-Bold').fillColor('#B91C1C').text('[CRITICAL] Compromised', startX + 370, curY + 5);
+          doc.font('Times-Bold').fillColor('#B91C1C').text(aud.reactionLabel, startX + 350, curY + 6);
+        } else if (aud.clicked) {
+          doc.font('Times-Bold').fillColor('#D97706').text(aud.reactionLabel, startX + 350, curY + 6);
+        } else if (aud.opened) {
+          doc.font('Times-Bold').fillColor('#047857').text(aud.reactionLabel, startX + 350, curY + 6);
         } else {
-          doc.font('Times-Roman').fillColor('#D97706').text('[WARNING] Clicked Link Only', startX + 370, curY + 5);
+          doc.font('Times-Roman').fillColor('#0284C7').text(aud.reactionLabel, startX + 350, curY + 6);
         }
 
         curY += 20;
@@ -553,16 +581,14 @@ exports.exportCampaignPDF = async (req, res) => {
     doc.rect(startX, boxY, tableWidth, 48).fill('#FFFBEB');
     doc.rect(startX, boxY, tableWidth, 48).strokeColor('#F59E0B').lineWidth(1).stroke();
 
-    // Select compromised victim or first clicker for the punchline
-    const victim = clickAudits.find(a => a.submitted) || clickAudits[0];
-    const jokeName = victim ? victim.name : 'Unknown Target';
-
-    const jokeLines = [
-      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} was caught lacking by a fake Microsoft link.`,
-      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} was caught codemaxxing in 4K during business hours.`,
-      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} fell for the oldest trick in the corporate playbook.`
-    ];
-    const chosenJoke = jokeLines[Math.floor(Math.random() * jokeLines.length)];
+    const victim = recipientAudits.find(a => a.submitted) || recipientAudits.find(a => a.clicked);
+    const chosenJoke = victim
+      ? [
+          `SECURITY AUDIT DEBRIEF: Employee ${victim.name} was caught lacking by a simulated phishing lure.`,
+          `SECURITY AUDIT DEBRIEF: Employee ${victim.name} was caught codemaxxing in 4K and handed over credentials.`,
+          `SECURITY AUDIT DEBRIEF: Employee ${victim.name} fell for the oldest trick in the corporate playbook.`
+        ][Math.floor(Math.random() * 3)]
+      : 'SECURITY AUDIT DEBRIEF: Zero employees were caught lacking in this drill — 100% security resilience!';
 
     doc.font('Times-Bold').fontSize(10).fillColor('#B45309')
        .text('POST-SIMULATION INTELLIGENCE NOTE:', startX + 14, boxY + 10);

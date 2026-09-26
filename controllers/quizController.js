@@ -162,7 +162,7 @@ exports.createQuizWithModule = async (req, res) => {
 
 /**
  * POST /api/quizzes/assign
- * Assigns a Quiz to specific employee(s), a department, or all High-Risk employees,
+ * Assigns a Quiz to specific employee(s), a department, or all High/Critical-Risk employees,
  * and dispatches a real email notification to every target via Nodemailer!
  */
 exports.assignQuizToEmployees = async (req, res) => {
@@ -188,16 +188,26 @@ exports.assignQuizToEmployees = async (req, res) => {
     }
     const quiz = quizRows[0];
 
-    // 2. Resolve Target Employees
+    // 2. Resolve Target Employees (Supports 4-tier risk levels!)
     let targetEmployees = [];
     if (targetType === 'employee' && employeeId) {
-      const [rows] = await pool.execute('SELECT id, name, email, department, risk_level FROM Employees WHERE id = ?', [employeeId]);
+      const [rows] = await pool.execute(
+        'SELECT id, name, email, department, risk_level FROM Employees WHERE id = ?',
+        [employeeId]
+      );
       targetEmployees = rows;
     } else if (targetType === 'department' && department) {
-      const [rows] = await pool.execute('SELECT id, name, email, department, risk_level FROM Employees WHERE department = ?', [department]);
+      const [rows] = await pool.execute(
+        'SELECT id, name, email, department, risk_level FROM Employees WHERE department = ?',
+        [department]
+      );
       targetEmployees = rows;
     } else if (targetType === 'high_risk') {
-      const [rows] = await pool.execute("SELECT id, name, email, department, risk_level FROM Employees WHERE risk_level = 'High'");
+      const [rows] = await pool.execute(
+        `SELECT id, name, email, department, risk_level
+         FROM Employees
+         WHERE risk_level LIKE '%High%' OR risk_level LIKE '%CRITICAL%' OR risk_level LIKE '%40%' OR risk_level LIKE '%100%'`
+      );
       targetEmployees = rows;
     } else {
       return res.status(400).json({ success: false, message: 'Invalid assignment target.' });
@@ -314,7 +324,8 @@ exports.getEmployeePersonalData = async (req, res) => {
 
 /**
  * POST /api/quizzes/:id/submit
- * Grades quiz submission, records QuizResults, and recalibrates Employee risk_level if passed.
+ * Grades quiz submission, records QuizResults, and steps down Employee risk_level across the 4-tier scale:
+ * CRITICAL VERY HIGH (100% Risk) -> High (40% Risk) -> Low (15% Risk) -> Perfect (0% Risk)
  */
 exports.submitQuiz = async (req, res) => {
   const quizId = parseInt(req.params.id, 10);
@@ -328,7 +339,6 @@ exports.submitQuiz = async (req, res) => {
   }
 
   try {
-    // Resolve exact employee ID from email if available so IDs never mismatch
     let resolvedEmpId = parseInt(employee_id, 10) || 1;
     if (employee_email) {
       const [empRows] = await pool.execute(
@@ -376,15 +386,16 @@ exports.submitQuiz = async (req, res) => {
       await pool.execute(
         `UPDATE Employees 
          SET risk_level = CASE 
-           WHEN risk_level = 'High' THEN 'Medium'
-           ELSE 'Low'
+           WHEN risk_level LIKE '%100%' OR risk_level LIKE '%CRITICAL%' THEN 'High (40% Risk)'
+           WHEN risk_level LIKE '%40%' OR risk_level = 'High' THEN 'Low (15% Risk)'
+           ELSE 'Perfect (0% Risk)'
          END
          WHERE id = ?`,
         [resolvedEmpId]
       );
 
       const [updatedEmp] = await pool.execute('SELECT risk_level FROM Employees WHERE id = ?', [resolvedEmpId]);
-      newRiskLevel = updatedEmp[0]?.risk_level || 'Low';
+      newRiskLevel = updatedEmp[0]?.risk_level || 'Perfect (0% Risk)';
     }
 
     return res.status(200).json({
@@ -396,7 +407,7 @@ exports.submitQuiz = async (req, res) => {
       passScore,
       newRiskLevel,
       message: passed
-        ? `Passed (${correctCount}/${questions.length} correct)! Your Risk Level has been recalibrated to ${newRiskLevel}.`
+        ? `Passed (${correctCount}/${questions.length} correct)! Your Risk Score improved to ${newRiskLevel}.`
         : `Scored ${score}% (${correctCount}/${questions.length}). Minimum ${passScore}% required to pass.`
     });
   } catch (error) {

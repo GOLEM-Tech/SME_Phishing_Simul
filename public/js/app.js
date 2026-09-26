@@ -13,6 +13,14 @@ const STATE = {
   mcqQuestionCount: 0
 };
 
+const LANDING_PAGE_LABELS = {
+  1: 'Office 365 Clone',
+  2: 'Google Workspace Clone',
+  3: 'Axis Bank NetBanking Clone',
+  4: 'Jio 5G SIM e-KYC Clone',
+  5: 'MrBreast YouTube Collab Clone'
+};
+
 // 2. PARSE QUERY STRINGS (OAUTH ROLE/ONBOARDING & RESET TOKEN)
 (function parseUrlCallbacks() {
   const params = new URLSearchParams(window.location.search);
@@ -100,7 +108,6 @@ function routeInitialView() {
 
   if (STATE.token && STATE.user) {
     if (STATE.user.role === 'Employee') {
-      // Check if OAuth employee needs to choose a department or is Pending Admin Approval
       if (STATE.user.needsDepartment || STATE.user.department === 'Unassigned' || STATE.user.approval_status === 'Pending') {
         showMainView('viewOAuthOnboarding');
         renderOAuthOnboardingView();
@@ -609,7 +616,7 @@ async function loadTargetRoster(page = 1) {
       </td>
       <td class="py-4 px-5 text-slate-300">${escapeHtml(emp.department || 'General')}</td>
       <td class="py-4 px-5">
-        <span class="px-3 py-1 rounded-full text-xs font-semibold ${getRiskBadgeStyle(emp.risk_level)}">${emp.risk_level}</span>
+        <span class="px-3 py-1 rounded-full text-xs font-semibold ${getRiskBadgeStyle(emp.risk_level)}">${escapeHtml(emp.risk_level || 'Perfect (0% Risk)')}</span>
       </td>
       <td class="py-4 px-5 text-slate-400">${new Date(emp.created_at).toLocaleDateString()}</td>
       <td class="py-4 px-5 text-right">
@@ -627,11 +634,11 @@ async function handleAddEmployee(e) {
 
   const res = await apiFetch('/api/employees', {
     method: 'POST',
-    body: JSON.stringify({ name, email, department, risk_level: 'Low' })
+    body: JSON.stringify({ name, email, department, risk_level: 'Perfect (0% Risk)' })
   });
 
   if (res && res.ok) {
-    showToast(`Added ${name} (${email}) to roster!`);
+    showToast(`Added ${name} (${email}) with Perfect (0% Risk)!`);
     document.getElementById('addEmployeeModal').classList.add('hidden');
     document.getElementById('addEmployeeForm').reset();
     loadTargetRoster(1);
@@ -713,28 +720,32 @@ async function loadCampaignsList() {
   select.innerHTML = campaigns.map(c => `<option value="${c.id}">#${c.id} — ${escapeHtml(c.name)} (${c.status})</option>`).join('');
   loadCampaignDashboardMetrics(campaigns[0].id);
 
-  tbody.innerHTML = campaigns.map(c => `
-    <tr class="hover:bg-slate-850/60 transition">
-      <td class="py-4 px-5">
-        <div class="font-semibold text-white">${escapeHtml(c.name)}</div>
-        <div class="text-xs text-slate-400">Campaign ID: #${c.id}</div>
-      </td>
-      <td class="py-4 px-5">
-        <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeStyle(c.status)}">${c.status}</span>
-      </td>
-      <td class="py-4 px-5 text-slate-300">
-        Template #${c.template_id || 1}
-      </td>
-      <td class="py-4 px-5 text-right space-x-2">
-        <button onclick="triggerDispatch(${c.id})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition">
-          Send Masked Phishing Mail
-        </button>
-        <button onclick="downloadCampaignPdf(${c.id})" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 text-xs font-semibold transition">
-          PDF
-        </button>
-      </td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = campaigns.map(c => {
+    const lpLabel = c.landing_page_name || LANDING_PAGE_LABELS[c.landing_page_id] || `Landing #${c.landing_page_id || 1}`;
+    return `
+      <tr class="hover:bg-slate-850/60 transition">
+        <td class="py-4 px-5">
+          <div class="font-semibold text-white">${escapeHtml(c.name)}</div>
+          <div class="text-xs text-slate-400">Campaign ID: #${c.id}</div>
+        </td>
+        <td class="py-4 px-5">
+          <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeStyle(c.status)}">${c.status}</span>
+        </td>
+        <td class="py-4 px-5 text-slate-300 text-xs">
+          <div>Template #${c.template_id || 1}</div>
+          <div class="text-blue-400 font-medium mt-0.5">${escapeHtml(lpLabel)}</div>
+        </td>
+        <td class="py-4 px-5 text-right space-x-2">
+          <button onclick="triggerDispatch(${c.id})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition">
+            Send Masked Phishing Mail
+          </button>
+          <button onclick="downloadCampaignPdf(${c.id})" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 text-xs font-semibold transition">
+            PDF
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
 async function handleCreateCampaign(e) {
@@ -918,7 +929,7 @@ async function loadAdminAwarenessPage() {
     const empData = await empRes.json();
     const emps = empData.employees || empData.data || [];
     empSelect.innerHTML = emps.map(e =>
-      `<option value="${e.id}">${escapeHtml(e.name)} (${escapeHtml(e.email)}) — [${e.risk_level} Risk]</option>`
+      `<option value="${e.id}">${escapeHtml(e.name)} (${escapeHtml(e.email)}) — [${escapeHtml(e.risk_level)}]</option>`
     ).join('');
   }
 
@@ -1007,7 +1018,7 @@ async function handleCreateQuizModule(e) {
   }
 }
 
-// 13. EMPLOYEE PERSONAL PORTAL
+// 13. EMPLOYEE PERSONAL PORTAL (LIVE DB SYNC + 4-TIER RISK BADGE)
 async function loadEmployeePortal() {
   const empId = STATE.user?.employeeId || STATE.user?.id || 1;
   const empEmail = STATE.user?.email || '';
@@ -1023,7 +1034,12 @@ async function loadEmployeePortal() {
 
     document.getElementById('empPortalName').textContent = emp.name || 'Employee';
     document.getElementById('empPortalEmail').textContent = emp.email || '';
-    document.getElementById('empContextRisk').textContent = emp.risk_level || 'Low';
+
+    const riskEl = document.getElementById('empContextRisk');
+    const riskText = emp.risk_level || 'Perfect (0% Risk)';
+    riskEl.textContent = riskText;
+    riskEl.className = `inline-block px-3.5 py-1.5 rounded-full text-sm font-bold ${getRiskBadgeStyle(riskText)}`;
+
     document.getElementById('empContextDept').textContent = emp.department || 'General';
     document.getElementById('empContextCompletedCount').textContent = history.length;
 
@@ -1138,7 +1154,7 @@ async function submitActiveQuiz() {
   }
 }
 
-// HELPERS
+// 14. HELPERS & 4-TIER RISK BADGE STYLING
 function getStatusBadgeStyle(status) {
   if (status === 'Completed') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
   if (status === 'Running') return 'bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse';
@@ -1146,9 +1162,18 @@ function getStatusBadgeStyle(status) {
 }
 
 function getRiskBadgeStyle(risk) {
-  if (risk === 'High') return 'bg-rose-500/15 text-rose-400 border border-rose-500/30';
-  if (risk === 'Medium') return 'bg-amber-500/15 text-amber-400 border border-amber-500/30';
-  return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+  const r = String(risk || '');
+  if (r.includes('100%') || r.includes('CRITICAL')) {
+    return 'bg-rose-600/25 text-rose-300 border border-rose-500 font-extrabold animate-pulse';
+  }
+  if (r.includes('40%') || r === 'High') {
+    return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold';
+  }
+  if (r.includes('15%') || r === 'Low') {
+    return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+  }
+  // Perfect (0% Risk)
+  return 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30';
 }
 
 function debounce(fn, wait) {
