@@ -13,17 +13,28 @@ const STATE = {
   mcqQuestionCount: 0
 };
 
-// 2. PARSE QUERY STRINGS (OAUTH & RESET TOKEN)
+// 2. PARSE QUERY STRINGS (OAUTH ROLE/ONBOARDING & RESET TOKEN)
 (function parseUrlCallbacks() {
   const params = new URLSearchParams(window.location.search);
   const oauthToken = params.get('oauth_token');
+  const oauthUserRaw = params.get('oauth_user');
+
   if (oauthToken) {
     const formatted = oauthToken.startsWith('Bearer ') ? oauthToken : `Bearer ${oauthToken}`;
     localStorage.setItem('token', formatted);
-    const adminUser = { id: 1, name: 'Lead Administrator', email: 'omjalela4@gmail.com', role: 'Admin' };
-    localStorage.setItem('user', JSON.stringify(adminUser));
     STATE.token = formatted;
-    STATE.user = adminUser;
+
+    let parsedUser = { id: 1, name: 'OAuth User', email: '', role: 'Employee', approval_status: 'Pending', needsDepartment: true };
+    if (oauthUserRaw) {
+      try {
+        parsedUser = JSON.parse(oauthUserRaw);
+      } catch (e) {
+        console.error('Failed parsing oauth_user:', e);
+      }
+    }
+
+    localStorage.setItem('user', JSON.stringify(parsedUser));
+    STATE.user = parsedUser;
     window.history.replaceState({}, document.title, window.location.pathname);
   }
 
@@ -75,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showMainView(viewId) {
-  ['viewUserLogin', 'viewAdminLogin', 'viewResetPassword', 'viewAdminShell', 'viewEmployeePortal'].forEach(id => {
+  ['viewUserLogin', 'viewAdminLogin', 'viewResetPassword', 'viewOAuthOnboarding', 'viewAdminShell', 'viewEmployeePortal'].forEach(id => {
     document.getElementById(id)?.classList.add('hidden');
   });
   document.getElementById(viewId)?.classList.remove('hidden');
@@ -86,8 +97,16 @@ function routeInitialView() {
     showMainView('viewResetPassword');
     return;
   }
+
   if (STATE.token && STATE.user) {
     if (STATE.user.role === 'Employee') {
+      // Check if OAuth employee needs to choose a department or is Pending Admin Approval
+      if (STATE.user.needsDepartment || STATE.user.department === 'Unassigned' || STATE.user.approval_status === 'Pending') {
+        showMainView('viewOAuthOnboarding');
+        renderOAuthOnboardingView();
+        return;
+      }
+
       showMainView('viewEmployeePortal');
       loadEmployeePortal();
     } else {
@@ -98,7 +117,24 @@ function routeInitialView() {
     }
     return;
   }
+
   showMainView('viewUserLogin');
+}
+
+function renderOAuthOnboardingView() {
+  document.getElementById('oauthEmpName').value = STATE.user?.name || '';
+  document.getElementById('oauthEmpEmail').value = STATE.user?.email || '';
+
+  const form = document.getElementById('oauthOnboardingForm');
+  const pendingNotice = document.getElementById('oauthPendingNotice');
+
+  if (STATE.user?.department && STATE.user.department !== 'Unassigned' && STATE.user?.approval_status === 'Pending') {
+    form.classList.add('hidden');
+    pendingNotice.classList.remove('hidden');
+  } else {
+    form.classList.remove('hidden');
+    pendingNotice.classList.add('hidden');
+  }
 }
 
 function logoutSession() {
@@ -122,9 +158,11 @@ function bindAllEvents() {
   document.getElementById('adminLoginForm').onsubmit = (e) => handleLoginSubmit(e, 'admin');
   document.getElementById('forgotPasswordForm').onsubmit = handleForgotPasswordSubmit;
   document.getElementById('resetPasswordForm').onsubmit = handleResetPasswordSubmit;
+  document.getElementById('oauthOnboardingForm').onsubmit = handleOAuthOnboardingSubmit;
 
   document.getElementById('adminLogoutBtn').onclick = logoutSession;
   document.getElementById('empLogoutBtn').onclick = logoutSession;
+  document.getElementById('oauthOnboardingLogoutBtn').onclick = logoutSession;
 
   document.querySelectorAll('.admin-nav-btn').forEach(btn => {
     btn.onclick = () => {
@@ -133,13 +171,16 @@ function bindAllEvents() {
       document.getElementById(targetPage)?.classList.remove('hidden');
 
       document.querySelectorAll('.admin-nav-btn').forEach(b => {
-        b.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center space-x-3 transition text-left';
+        b.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left';
       });
-      btn.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center space-x-3 transition text-left';
+      btn.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-between transition text-left';
 
       if (targetPage === 'pageAwareness') loadAdminAwarenessPage();
       if (targetPage === 'pageCampaigns') loadCampaignsList();
-      if (targetPage === 'pageEmployees') loadTargetRoster(1);
+      if (targetPage === 'pageEmployees') {
+        loadPendingOAuthEmployees();
+        loadTargetRoster(1);
+      }
     };
   });
 
@@ -168,7 +209,6 @@ function bindAllEvents() {
   document.getElementById('closeAiModalBtn').onclick = () => document.getElementById('aiModal').classList.add('hidden');
   document.getElementById('triggerAiGenerationBtn').onclick = handleAiGeneration;
 
-  // Quiz Assignment & Multi-Question Builder
   document.getElementById('assignTargetType').onchange = (e) => {
     const val = e.target.value;
     document.getElementById('assignEmployeeBox').classList.toggle('hidden', val !== 'employee');
@@ -187,7 +227,30 @@ function bindAllEvents() {
   document.getElementById('rosterNextBtn').onclick = () => loadTargetRoster(STATE.activePage + 1);
 }
 
-// 6. AUTHENTICATION HANDLERS
+// 6. AUTHENTICATION & OAUTH ONBOARDING HANDLERS
+async function handleOAuthOnboardingSubmit(e) {
+  e.preventDefault();
+  const name = document.getElementById('oauthEmpName').value.trim();
+  const department = document.getElementById('oauthEmpDept').value;
+
+  if (!department) return alert('Please select your department.');
+
+  const res = await apiFetch('/api/auth/oauth-onboarding', {
+    method: 'POST',
+    body: JSON.stringify({ name, department })
+  });
+
+  if (res && res.ok) {
+    const data = await res.json();
+    STATE.user = { ...STATE.user, ...data.employee, needsDepartment: false, approval_status: 'Pending' };
+    localStorage.setItem('user', JSON.stringify(STATE.user));
+    showToast('Department saved! Sent to Admin for approval.');
+    renderOAuthOnboardingView();
+  } else {
+    alert('Failed to submit department selection.');
+  }
+}
+
 async function handleLoginSubmit(e, mode) {
   e.preventDefault();
   const email = document.getElementById(mode === 'admin' ? 'adminEmailInput' : 'loginEmailInput').value.trim();
@@ -279,6 +342,7 @@ async function handleResetPasswordSubmit(e) {
 async function initAdminWorkspace() {
   await loadTemplates();
   await loadCampaignsList();
+  await loadPendingOAuthEmployees();
   await loadTargetRoster(1);
   await loadTemporalHeatmap();
   await loadDepartmentMatrix();
@@ -441,7 +505,74 @@ async function handleRunAiRiskAnalysis() {
   `;
 }
 
-// 8. EMPLOYEE DIRECTORY
+// 8. EMPLOYEE DIRECTORY & PENDING OAUTH APPROVALS
+async function loadPendingOAuthEmployees() {
+  const tbody = document.getElementById('pendingEmployeesTableBody');
+  const badge = document.getElementById('pendingNavBadge');
+  const countLabel = document.getElementById('pendingCountLabel');
+  if (!tbody) return;
+
+  const res = await apiFetch('/api/employees/pending');
+  if (!res || !res.ok) return;
+
+  const data = await res.json();
+  const pending = data.pendingEmployees || [];
+
+  if (countLabel) countLabel.textContent = `${pending.length} Pending`;
+  if (badge) {
+    badge.textContent = pending.length;
+    badge.classList.toggle('hidden', pending.length === 0);
+  }
+
+  if (pending.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">No pending OAuth sign-ups awaiting approval.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pending.map(emp => `
+    <tr class="hover:bg-slate-850/60 transition">
+      <td class="py-3.5 px-5">
+        <div class="font-bold text-white">${escapeHtml(emp.name)}</div>
+        <div class="text-xs text-amber-400">${escapeHtml(emp.email)}</div>
+      </td>
+      <td class="py-3.5 px-5">
+        <span class="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-semibold">
+          ${escapeHtml(emp.department || 'Unassigned')}
+        </span>
+      </td>
+      <td class="py-3.5 px-5 text-slate-400 text-xs">${new Date(emp.created_at).toLocaleString()}</td>
+      <td class="py-3.5 px-5 text-right space-x-2">
+        <button onclick="approveOAuthEmployee(${emp.id})" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition">
+          Approve
+        </button>
+        <button onclick="ignoreOAuthEmployee(${emp.id})" class="px-3.5 py-1.5 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition">
+          Ignore
+        </button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function approveOAuthEmployee(id) {
+  const res = await apiFetch(`/api/employees/${id}/approve`, { method: 'PUT' });
+  if (res && res.ok) {
+    showToast('OAuth Employee approved and added to active roster!');
+    await loadPendingOAuthEmployees();
+    await loadTargetRoster(STATE.activePage);
+  } else {
+    alert('Failed to approve employee.');
+  }
+}
+
+async function ignoreOAuthEmployee(id) {
+  if (!confirm('Ignore and remove this pending OAuth sign-up request?')) return;
+  const res = await apiFetch(`/api/employees/${id}`, { method: 'DELETE' });
+  if (res && res.ok) {
+    showToast('Pending OAuth request ignored and removed.');
+    await loadPendingOAuthEmployees();
+  }
+}
+
 async function loadTargetRoster(page = 1) {
   STATE.activePage = page;
   const tbody = document.getElementById('rosterTableBody');
@@ -466,7 +597,7 @@ async function loadTargetRoster(page = 1) {
   document.getElementById('rosterNextBtn').disabled = currentPage >= (pagination.totalPages || 1);
 
   if (employees.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No employees match your filter criteria.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No approved employees match your filter criteria.</td></tr>`;
     return;
   }
 
@@ -750,7 +881,6 @@ function appendMcqQuestionBlock() {
 }
 
 async function loadAdminAwarenessPage() {
-  // 1. Load Quizzes & Populate Assignment Dropdown
   const list = document.getElementById('adminQuizzesList');
   const quizSelect = document.getElementById('assignQuizSelect');
 
@@ -782,7 +912,6 @@ async function loadAdminAwarenessPage() {
     `).join('');
   }
 
-  // 2. Populate Employee Dropdown for Assignment
   const empSelect = document.getElementById('assignEmployeeSelect');
   const empRes = await apiFetch('/api/employees?page=1&limit=100');
   if (empRes && empRes.ok && empSelect) {
@@ -793,7 +922,6 @@ async function loadAdminAwarenessPage() {
     ).join('');
   }
 
-  // 3. Load Audit Logs
   const auditBody = document.getElementById('auditLogsTableBody');
   const aRes = await apiFetch('/api/audit-logs?page=1&limit=12');
   if (aRes && aRes.ok) {
@@ -879,19 +1007,17 @@ async function handleCreateQuizModule(e) {
   }
 }
 
-// 13. EMPLOYEE PERSONAL PORTAL (LIVE DB SYNC BY EMAIL + ID)
+// 13. EMPLOYEE PERSONAL PORTAL
 async function loadEmployeePortal() {
   const empId = STATE.user?.employeeId || STATE.user?.id || 1;
   const empEmail = STATE.user?.email || '';
 
-  // 1. Fetch live Employee row using both ID and Email so it matches Admin Dashboard 100%
   const pRes = await apiFetch(`/api/quizzes/employee/${empId}?email=${encodeURIComponent(empEmail)}`);
   if (pRes && pRes.ok) {
     const pData = await pRes.json();
     const emp = pData.employee || {};
     const history = pData.quizHistory || [];
 
-    // Update STATE.user with live database values
     STATE.user = { ...STATE.user, id: emp.id, employeeId: emp.id, name: emp.name, email: emp.email, department: emp.department, risk_level: emp.risk_level };
     localStorage.setItem('user', JSON.stringify(STATE.user));
 
@@ -914,7 +1040,6 @@ async function loadEmployeePortal() {
         `).join('');
   }
 
-  // 2. Fetch all 5+ Quizzes
   const qRes = await apiFetch('/api/quizzes');
   const container = document.getElementById('trainingModulesContainer');
   if (qRes && qRes.ok) {

@@ -172,6 +172,59 @@
     </div>
   </main>
 
+  <!-- VIEW 6: OAUTH EMPLOYEE DEPARTMENT ONBOARDING & PENDING APPROVAL SCREEN -->
+  <main id="viewOAuthOnboarding" class="hidden flex-1 flex items-center justify-center p-6">
+    <div class="w-full max-w-md bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-8 shadow-2xl space-y-6 text-sm">
+      <div class="flex items-center justify-between">
+        <span class="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold uppercase tracking-wider">
+          OAuth Employee Onboarding
+        </span>
+        <button type="button" id="oauthOnboardingLogoutBtn" class="text-xs text-slate-400 hover:text-white">Sign Out</button>
+      </div>
+
+      <div>
+        <h2 class="text-xl font-bold text-white">Complete Your Employee Profile</h2>
+        <p class="text-slate-400 mt-1">Your OAuth account is not an administrator. Select your corporate department below to request access from an Admin.</p>
+      </div>
+
+      <!-- Step A: Choose Department Form -->
+      <form id="oauthOnboardingForm" class="space-y-4">
+        <div>
+          <label class="block text-slate-400 mb-1">OAuth Display Name</label>
+          <input type="text" id="oauthEmpName" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+        </div>
+        <div>
+          <label class="block text-slate-400 mb-1">Verified OAuth Email</label>
+          <input type="email" id="oauthEmpEmail" readonly class="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-slate-400 cursor-not-allowed" />
+        </div>
+        <div>
+          <label class="block text-slate-300 font-semibold mb-1">Select Your Department</label>
+          <select id="oauthEmpDept" required class="w-full bg-slate-950 border border-blue-500 rounded-xl p-3 text-white">
+            <option value="" disabled selected>-- Choose Department --</option>
+            <option value="Finance">Finance</option>
+            <option value="HR">HR</option>
+            <option value="IT">IT</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Legal">Legal</option>
+            <option value="Operations">Operations</option>
+          </select>
+        </div>
+        <button type="submit" id="oauthOnboardingSubmitBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-base transition">
+          Submit for Admin Approval
+        </button>
+      </form>
+
+      <!-- Step B: Pending Approval Notice -->
+      <div id="oauthPendingNotice" class="hidden p-5 bg-amber-950/30 border border-amber-500/30 rounded-xl space-y-2 text-center">
+        <p class="text-amber-400 font-bold text-base">⏳ Awaiting Administrator Approval</p>
+        <p class="text-slate-300 text-xs leading-relaxed">
+          Your employee registration has been sent to the <strong>Admin SOC Console → Employee Management</strong> approval queue. Once an administrator approves your profile, you can sign in to access your training portal.
+        </p>
+      </div>
+    </div>
+  </main>
+
   <!-- VIEW 4: ADMIN SHELL -->
   <div id="viewAdminShell" class="hidden flex-1 flex min-h-screen overflow-hidden">
     <!-- Sidebar -->
@@ -192,9 +245,12 @@
             <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
             <span>Analytics & Reports</span>
           </button>
-          <button type="button" data-admin-nav="pageEmployees" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center space-x-3 transition text-left">
-            <i data-lucide="users" class="w-5 h-5"></i>
-            <span>Employee Management</span>
+          <button type="button" data-admin-nav="pageEmployees" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left">
+            <span class="flex items-center space-x-3">
+              <i data-lucide="users" class="w-5 h-5"></i>
+              <span>Employee Management</span>
+            </span>
+            <span id="pendingNavBadge" class="hidden px-2 py-0.5 bg-amber-500 text-slate-950 rounded-full text-xs font-extrabold">0</span>
           </button>
           <button type="button" data-admin-nav="pageCampaigns" class="admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center space-x-3 transition text-left">
             <i data-lucide="send" class="w-5 h-5"></i>
@@ -353,12 +409,12 @@
         </div>
       </section>
 
-      <!-- PAGE 2: EMPLOYEES -->
+      <!-- PAGE 2: EMPLOYEES + PENDING OAUTH APPROVALS -->
       <section id="pageEmployees" class="admin-page hidden space-y-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 class="text-2xl font-bold text-white">Employee Directory Management</h2>
-            <p class="text-sm text-slate-400 mt-1">All employees listed here can sign into the User Portal using their email and <code>Employee123!</code></p>
+            <h2 class="text-2xl font-bold text-white">Employee Directory & OAuth Approvals</h2>
+            <p class="text-sm text-slate-400 mt-1">Approve or ignore new OAuth employee sign-ups, or manage the active target directory</p>
           </div>
           <div class="flex flex-wrap items-center gap-3">
             <input type="text" id="rosterSearchInput" placeholder="Search name or email..." class="bg-slate-900 border border-slate-700 text-sm px-4 py-2.5 rounded-xl text-white focus:outline-none" />
@@ -379,6 +435,33 @@
           </div>
         </div>
 
+        <!-- NEW: PENDING OAUTH EMPLOYEE APPROVALS SECTION -->
+        <div id="pendingOAuthSection" class="bg-slate-900 border-2 border-amber-500/40 rounded-2xl overflow-hidden shadow-lg">
+          <div class="px-6 py-4 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
+            <div class="flex items-center space-x-2.5">
+              <i data-lucide="user-check" class="w-5 h-5 text-amber-400"></i>
+              <h3 class="text-base font-bold text-white">Pending OAuth Employee Approvals</h3>
+            </div>
+            <span id="pendingCountLabel" class="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold">0 Pending</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-950 text-slate-400 uppercase tracking-wider border-b border-slate-800 text-xs">
+                <tr>
+                  <th class="py-3.5 px-5">OAuth User & Email</th>
+                  <th class="py-3.5 px-5">Requested Department</th>
+                  <th class="py-3.5 px-5">Requested On</th>
+                  <th class="py-3.5 px-5 text-right">Approval Decision</th>
+                </tr>
+              </thead>
+              <tbody id="pendingEmployeesTableBody" class="divide-y divide-slate-800 text-slate-200">
+                <tr><td colspan="4" class="p-4 text-center text-slate-500">No pending OAuth sign-ups awaiting approval.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Active Approved Employee Directory -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full text-left text-sm">
@@ -480,7 +563,6 @@
           <p class="text-sm text-slate-400 mt-1">Assign quizzes to employees (automatically dispatches real Gmail alerts) or build multi-question MCQ quizzes</p>
         </div>
 
-        <!-- NEW: ASSIGN QUIZ & SEND REAL EMAIL NOTIFICATION CARD -->
         <div class="bg-slate-900 border-2 border-emerald-500/30 rounded-2xl p-6 space-y-4">
           <div class="flex items-center justify-between">
             <h3 class="text-base font-bold text-emerald-400 flex items-center space-x-2">
@@ -531,7 +613,6 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Multi-Question MCQ Quiz Builder -->
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 text-sm">
             <div class="flex items-center justify-between">
               <h3 class="text-base font-bold text-white flex items-center space-x-2">
@@ -563,7 +644,6 @@
                 </div>
               </div>
 
-              <!-- Dynamic Multi-Question Container -->
               <div id="dynamicMcqBuilderList" class="space-y-3 max-h-80 overflow-y-auto pr-1"></div>
 
               <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition">
@@ -572,7 +652,6 @@
             </form>
           </div>
 
-          <!-- Active Quizzes List -->
           <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
             <h3 class="text-base font-bold text-white">Active Awareness Modules & Quizzes (Click to Preview)</h3>
             <div id="adminQuizzesList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1"></div>
@@ -675,7 +754,7 @@
           <input type="text" id="addEmpName" required placeholder="Jane Doe" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
         </div>
         <div>
-          <label class="block text-slate-400 mb-1">Email Address (Use a real Gmail to receive live phishing & quiz emails!)</label>
+          <label class="block text-slate-400 mb-1">Email Address</label>
           <input type="email" id="addEmpEmail" required placeholder="yourname@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
         </div>
         <div>
@@ -768,7 +847,6 @@
     </div>
   </div>
 
-  <!-- INTERACTIVE MULTI-QUESTION QUIZ ASSESSMENT MODAL -->
   <div id="quizModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] flex flex-col text-sm">
       <div class="flex justify-between items-center border-b border-slate-800 pb-3">

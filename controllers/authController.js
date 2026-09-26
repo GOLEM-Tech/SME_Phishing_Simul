@@ -7,7 +7,6 @@ const pool = require('../config/db');
 const { sendPasswordResetEmail } = require('../utils/mailer');
 const auditLogger = require('../utils/auditLogger');
 
-// Safe wrapper that works whether auditLogger exports a function or { logAudit }
 async function recordAudit(userId, action, details, ip) {
   try {
     const fn = typeof auditLogger === 'function' ? auditLogger : auditLogger?.logAudit;
@@ -21,7 +20,6 @@ async function recordAudit(userId, action, details, ip) {
 
 /**
  * POST /api/auth/register
- * Registers a new Admin user in the Users table.
  */
 exports.register = async (req, res) => {
   try {
@@ -67,7 +65,6 @@ exports.register = async (req, res) => {
 
 /**
  * POST /api/auth/login
- * Supports both Admin authentication (Users table) and Employee portal login (Employees table).
  */
 exports.login = async (req, res) => {
   const { email, password, loginType } = req.body;
@@ -120,7 +117,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // If the user explicitly used the Dedicated Admin Login page, reject non-admins here
     if (loginType === 'admin') {
       return res.status(401).json({
         success: false,
@@ -130,7 +126,7 @@ exports.login = async (req, res) => {
 
     // 2. Check Employees table for standard User Login
     const [empRows] = await pool.execute(
-      'SELECT id, name, email, department, risk_level FROM Employees WHERE LOWER(email) = ? LIMIT 1',
+      'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE LOWER(email) = ? LIMIT 1',
       [normalizedEmail]
     );
 
@@ -142,9 +138,15 @@ exports.login = async (req, res) => {
     }
 
     const employee = empRows[0];
-    const emailPrefix = employee.email.split('@')[0];
 
-    // Allow employee login via default password ("Employee123!", "Pass123!", or their email prefix)
+    if (employee.approval_status === 'Pending') {
+      return res.status(403).json({
+        success: false,
+        message: 'Your employee profile is currently Pending Admin Approval.'
+      });
+    }
+
+    const emailPrefix = employee.email.split('@')[0];
     const validEmployeePasswords = ['Employee123!', 'Pass123!', emailPrefix, employee.name];
     if (!validEmployeePasswords.includes(password)) {
       return res.status(401).json({
@@ -172,6 +174,7 @@ exports.login = async (req, res) => {
         email: employee.email,
         department: employee.department,
         risk_level: employee.risk_level,
+        approval_status: employee.approval_status || 'Approved',
         role: 'Employee'
       }
     });
@@ -185,8 +188,56 @@ exports.login = async (req, res) => {
 };
 
 /**
+ * POST /api/auth/oauth-onboarding
+ * Allows a newly created OAuth Employee to set their name & department and submit for Admin approval.
+ */
+exports.completeOAuthOnboarding = async (req, res) => {
+  try {
+    const employeeId = req.user?.employeeId || req.user?.id;
+    const { name, department } = req.body;
+
+    if (!employeeId || !department) {
+      return res.status(400).json({
+        success: false,
+        message: 'Department selection is required.'
+      });
+    }
+
+    await pool.execute(
+      `UPDATE Employees
+       SET name = COALESCE(?, name),
+           department = ?,
+           approval_status = 'Pending'
+       WHERE id = ?`,
+      [name ? name.trim() : null, department.trim(), employeeId]
+    );
+
+    const [updated] = await pool.execute(
+      'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE id = ? LIMIT 1',
+      [employeeId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Department saved! Your account is now awaiting Admin approval.',
+      employee: {
+        ...updated[0],
+        employeeId: updated[0].id,
+        role: 'Employee',
+        needsDepartment: false
+      }
+    });
+  } catch (error) {
+    console.error('OAuth onboarding error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save department selection.'
+    });
+  }
+};
+
+/**
  * POST /api/auth/forgot-password
- * Dispatches a SHA-256 hashed 1-hour reset token via Nodemailer.
  */
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
@@ -235,7 +286,6 @@ exports.forgotPassword = async (req, res) => {
 
 /**
  * POST /api/auth/reset-password
- * Verifies the SHA-256 reset token and updates the user's bcrypt password hash.
  */
 exports.resetPassword = async (req, res) => {
   const { token, newPassword } = req.body;

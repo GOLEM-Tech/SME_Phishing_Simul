@@ -1,10 +1,12 @@
+'use strict';
+
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const multer = require('multer');
 const path = require('path');
 const employeeController = require('../controllers/employeeController');
-const auditMiddleware = require('../middleware/auditMiddleware'); // <-- 1. IMPORT HERE
+const auditMiddleware = require('../middleware/auditMiddleware');
 
 const upload = multer({
   dest: 'uploads/',
@@ -20,8 +22,15 @@ const upload = multer({
 
 // Protect all employee routes with JWT via Passport
 router.use(passport.authenticate('jwt', { session: false }));
-router.use(auditMiddleware); // <-- 2. MOUNT HERE (Captures state changes for authenticated admins)
+if (typeof auditMiddleware === 'function') {
+  router.use(auditMiddleware);
+}
 
+// Pending OAuth Approvals routes
+router.get('/pending', employeeController.getPendingEmployees);
+router.put('/:id/approve', employeeController.approveEmployee);
+
+// Standard Employee CRUD & CSV Import
 router.post('/upload-csv', upload.single('file'), employeeController.uploadCSV);
 router.post('/', employeeController.createEmployee);
 router.get('/', employeeController.getAllEmployees);
@@ -29,4 +38,4 @@ router.get('/:id', employeeController.getEmployeeById);
 router.put('/:id', employeeController.updateEmployee);
 router.delete('/:id', employeeController.deleteEmployee);
 
-module.exports = router;
+module.exports = router;  
