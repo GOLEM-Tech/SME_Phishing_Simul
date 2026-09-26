@@ -1,16 +1,30 @@
+'use strict';
+
 const express = require('express');
 const passport = require('passport');
 const reportController = require('../controllers/reportController');
 
 const router = express.Router();
 
-// All reporting endpoints require Admin JWT authentication
+/**
+ * Middleware: Allow JWT token from either Authorization header OR ?token= query parameter.
+ * This resolves the 401 Unauthorized issue when the browser opens a PDF or CSV in a new window.
+ */
+router.use((req, res, next) => {
+  if (!req.headers.authorization && req.query.token) {
+    const raw = req.query.token.startsWith('Bearer ') ? req.query.token : `Bearer ${req.query.token}`;
+    req.headers.authorization = raw;
+  }
+  next();
+});
+
+// Require Admin JWT authentication
 router.use(passport.authenticate('jwt', { session: false }));
 
-// Campaign Dashboard Metrics & Visual Data
+// Campaign Dashboard Metrics
 router.get('/campaign/:id', reportController.getCampaignDashboard);
 
-// Campaign CSV Export Stream
+// Campaign CSV Export
 router.get('/campaign/:id/csv', reportController.exportCampaignCSV);
 
 // Campaign PDF Executive Report Stream

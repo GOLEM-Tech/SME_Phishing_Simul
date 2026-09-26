@@ -1,3 +1,5 @@
+'use strict';
+
 const PDFDocument = require('pdfkit');
 const pool = require('../config/db');
 
@@ -18,7 +20,7 @@ const escapeCsvField = (value) => {
 };
 
 /**
- * Common SQL subquery calculating per-recipient interaction flags.
+ * Common SQL subquery calculating per-recipient interaction flags and timestamps.
  */
 const recipientEventsSql = `
   SELECT
@@ -54,7 +56,7 @@ const recipientEventsSql = `
 `;
 
 /**
- * Helper to fetch aggregated campaign dashboard statistics.
+ * Helper to fetch aggregated campaign statistics and click audit data.
  */
 const fetchCampaignStatistics = async (campaignId) => {
   const [campaignRows] = await pool.execute(
@@ -66,7 +68,7 @@ const fetchCampaignStatistics = async (campaignId) => {
     return null;
   }
 
-  const [metricRows, departmentRows] = await Promise.all([
+  const [metricRows, departmentRows, clickAuditRows] = await Promise.all([
     pool.execute(`
       SELECT
         COUNT(*) AS total_recipients,
@@ -95,6 +97,19 @@ const fetchCampaignStatistics = async (campaignId) => {
       FROM (${recipientEventsSql}) AS recipient_events
       GROUP BY department
       ORDER BY department ASC
+    `, [campaignId]),
+    pool.execute(`
+      SELECT
+        employee_name,
+        employee_email,
+        department,
+        risk_level,
+        clicked_at,
+        submitted,
+        submitted_at
+      FROM (${recipientEventsSql}) AS recipient_events
+      WHERE clicked = 1 OR submitted = 1
+      ORDER BY submitted DESC, clicked_at ASC, employee_name ASC
     `, [campaignId])
   ]);
 
@@ -136,11 +151,22 @@ const fetchCampaignStatistics = async (campaignId) => {
     };
   });
 
+  const clickAudits = clickAuditRows[0].map((row) => ({
+    name: row.employee_name,
+    email: row.employee_email,
+    department: row.department || 'General',
+    riskLevel: row.risk_level || 'Low',
+    clickedAt: row.clicked_at ? new Date(row.clicked_at).toLocaleString() : 'Recorded',
+    submitted: row.submitted === 1,
+    submittedAt: row.submitted_at ? new Date(row.submitted_at).toLocaleString() : 'N/A'
+  }));
+
   return {
     campaign: campaignRows[0],
     metrics,
     rates,
-    departments
+    departments,
+    clickAudits
   };
 };
 
@@ -291,7 +317,7 @@ exports.exportCampaignCSV = async (req, res) => {
 
 /**
  * GET /api/reports/campaign/:id/pdf
- * Generates and streams a PDF executive report using PDFKit.
+ * Generates an executive security evaluation audit report using Times New Roman.
  */
 exports.exportCampaignPDF = async (req, res) => {
   const campaignId = Number.parseInt(req.params.id, 10);
@@ -313,11 +339,11 @@ exports.exportCampaignPDF = async (req, res) => {
       });
     }
 
-    const { campaign, metrics, rates, departments } = reportData;
+    const { campaign, metrics, rates, departments, clickAudits } = reportData;
     const sanitizedCampaignName = campaign.name.replace(/[^a-zA-Z0-9_-]/g, '_');
     const filename = `campaign_${campaign.id}_${sanitizedCampaignName}_report.pdf`;
 
-    const doc = new PDFDocument({ margin: 40, size: 'A4' });
+    const doc = new PDFDocument({ margin: 45, size: 'A4', bufferPages: true });
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -325,95 +351,237 @@ exports.exportCampaignPDF = async (req, res) => {
 
     doc.pipe(res);
 
-    // Header & Title
-    doc.fillColor('#1E293B').fontSize(20).text('Campaign Performance Report', { align: 'left' });
-    doc.moveDown(0.3);
-    doc.fontSize(10).fillColor('#64748B').text(`Generated on: ${new Date().toUTCString()} | SME Phishing Simulation Platform`);
-    doc.moveDown(0.8);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#E2E8F0').stroke();
-    doc.moveDown(1);
+    const startX = 45;
+    const tableWidth = 505;
 
-    // Campaign Metadata Overview
-    doc.fillColor('#0F172A').fontSize(14).text('Campaign Overview');
-    doc.moveDown(0.4);
-    doc.fontSize(10).fillColor('#334155');
-    doc.text(`Campaign Name: ${campaign.name}`);
-    doc.text(`Status: ${campaign.status}`);
-    doc.text(`Description: ${campaign.description || 'N/A'}`);
-    doc.text(`Launched: ${campaign.created_at ? new Date(campaign.created_at).toUTCString() : 'N/A'}`);
-    doc.moveDown(1.2);
+    const checkPageBreak = (neededHeight) => {
+      if (doc.y + neededHeight > 740) {
+        doc.addPage();
+        doc.y = 50;
+      }
+    };
 
-    // Funnel Performance Table
-    doc.fillColor('#0F172A').fontSize(14).text('Interaction Funnel & Conversion Rates');
+    // ==========================================
+    // DOCUMENT HEADER (TIMES NEW ROMAN)
+    // ==========================================
+    doc.font('Times-Bold').fontSize(22).fillColor('#0F172A').text('CAMPAIGN AUDIT & SECURITY REPORT', startX, 45);
+    doc.moveDown(0.2);
+    doc.font('Times-Italic').fontSize(10).fillColor('#475569')
+       .text(`Generated on: ${new Date().toUTCString()} | Platform: SME_Phishing_Simulator`);
     doc.moveDown(0.5);
 
-    const startX = 40;
-    let currentY = doc.y;
+    doc.moveTo(startX, doc.y).lineTo(startX + tableWidth, doc.y).lineWidth(1.5).strokeColor('#0F172A').stroke();
+    doc.moveDown(0.8);
 
-    doc.rect(startX, currentY, 515, 20).fill('#F1F5F9');
-    doc.fillColor('#0F172A').fontSize(9).text('METRIC', startX + 10, currentY + 6);
-    doc.text('COUNT', startX + 220, currentY + 6);
-    doc.text('RATE (% OF SENT)', startX + 370, currentY + 6);
+    // ==========================================
+    // 1. CAMPAIGN OVERVIEW METADATA
+    // ==========================================
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('1. Campaign Overview', startX);
+    doc.moveDown(0.4);
 
-    currentY += 20;
+    const metaY = doc.y;
+    doc.rect(startX, metaY, tableWidth, 68).fill('#F8FAFC');
+    doc.rect(startX, metaY, tableWidth, 68).strokeColor('#CBD5E1').lineWidth(0.8).stroke();
+
+    doc.font('Times-Bold').fontSize(10).fillColor('#1E293B');
+    doc.text('Campaign Name:', startX + 12, metaY + 10);
+    doc.font('Times-Roman').text(campaign.name, startX + 115, metaY + 10);
+
+    doc.font('Times-Bold').text('Execution Status:', startX + 12, metaY + 24);
+    doc.font('Times-Roman').text(campaign.status, startX + 115, metaY + 24);
+
+    doc.font('Times-Bold').text('Description:', startX + 12, metaY + 38);
+    doc.font('Times-Roman').text(campaign.description || 'Automated drill', startX + 115, metaY + 38, { width: 370, ellipsis: true });
+
+    doc.font('Times-Bold').text('Launched Date:', startX + 12, metaY + 52);
+    doc.font('Times-Roman').text(campaign.created_at ? new Date(campaign.created_at).toUTCString() : 'N/A', startX + 115, metaY + 52);
+
+    doc.y = metaY + 82;
+
+    // ==========================================
+    // 2. INTERACTION FUNNEL & CONVERSION RATES
+    // ==========================================
+    checkPageBreak(180);
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('2. Interaction Funnel & Conversion Rates', startX);
+    doc.moveDown(0.4);
+
+    let curY = doc.y;
+    doc.rect(startX, curY, tableWidth, 20).fill('#E2E8F0');
+    doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
+
+    doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
+    doc.text('METRIC STAGE', startX + 12, curY + 6);
+    doc.text('RECIPIENT COUNT', startX + 240, curY + 6);
+    doc.text('CONVERSION RATE (% OF SENT)', startX + 370, curY + 6);
+
+    curY += 20;
 
     const summaryRows = [
       ['Total Targets / Recipient Pool', metrics.totalRecipients, '100%'],
-      ['Emails Sent', metrics.totalSent, `${percentage(metrics.totalSent, metrics.totalRecipients)}%`],
-      ['Delivered', metrics.delivered, `${rates.deliveryRate}%`],
-      ['Opened (Tracking Pixel)', metrics.opened, `${rates.openRate}%`],
-      ['Clicked (Link Redirection)', metrics.clicked, `${rates.clickRate}%`],
-      ['Compromised (Payload Submitted)', metrics.compromised, `${rates.compromiseRate}%`],
-      ['Ignored / Safe', metrics.ignored, `${rates.ignoredRate}%`]
+      ['Simulations Dispatched', metrics.totalSent, `${percentage(metrics.totalSent, metrics.totalRecipients)}%`],
+      ['Delivered (MTA Confirmed)', metrics.delivered, `${rates.deliveryRate}%`],
+      ['Opened (1x1 Transparent Pixel)', metrics.opened, `${rates.openRate}%`],
+      ['Clicked (Link Interceptor Triggered)', metrics.clicked, `${rates.clickRate}%`],
+      ['Compromised (Plaintext Payload Submitted)', metrics.compromised, `${rates.compromiseRate}%`],
+      ['Ignored / Security Resilient', metrics.ignored, `${rates.ignoredRate}%`]
     ];
 
     summaryRows.forEach((row, idx) => {
-      if (idx % 2 === 1) {
-        doc.rect(startX, currentY, 515, 18).fill('#F8FAFC');
+      const rowBg = idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
+      doc.rect(startX, curY, tableWidth, 18).fill(rowBg);
+      doc.rect(startX, curY, tableWidth, 18).strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+
+      doc.font('Times-Roman').fontSize(9).fillColor('#1E293B');
+      doc.text(String(row[0]), startX + 12, curY + 5);
+      doc.text(String(row[1]), startX + 240, curY + 5);
+
+      if (idx === 5 && metrics.compromised > 0) {
+        doc.font('Times-Bold').fillColor('#B91C1C').text(String(row[2]), startX + 370, curY + 5);
+      } else {
+        doc.text(String(row[2]), startX + 370, curY + 5);
       }
-      doc.fillColor('#334155').fontSize(9).text(String(row[0]), startX + 10, currentY + 5);
-      doc.text(String(row[1]), startX + 220, currentY + 5);
-      doc.text(String(row[2]), startX + 370, currentY + 5);
-      currentY += 18;
+      curY += 18;
     });
 
-    doc.y = currentY + 20;
+    doc.y = curY + 16;
 
-    // Department Breakdown
-    doc.fillColor('#0F172A').fontSize(14).text('Departmental Risk Breakdown');
-    doc.moveDown(0.5);
+    // ==========================================
+    // 3. DEPARTMENTAL RISK BREAKDOWN
+    // ==========================================
+    checkPageBreak(120);
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('3. Departmental Risk Breakdown', startX);
+    doc.moveDown(0.4);
 
-    currentY = doc.y;
-    doc.rect(startX, currentY, 515, 20).fill('#F1F5F9');
-    doc.fillColor('#0F172A').fontSize(9);
-    doc.text('DEPARTMENT', startX + 10, currentY + 6);
-    doc.text('TARGETS', startX + 140, currentY + 6);
-    doc.text('CLICKED', startX + 220, currentY + 6);
-    doc.text('COMPROMISED', startX + 310, currentY + 6);
-    doc.text('FAILURE RATE', startX + 420, currentY + 6);
+    curY = doc.y;
+    doc.rect(startX, curY, tableWidth, 20).fill('#E2E8F0');
+    doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
 
-    currentY += 20;
+    doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
+    doc.text('DEPARTMENT', startX + 12, curY + 6);
+    doc.text('TARGETS', startX + 150, curY + 6);
+    doc.text('CLICKED', startX + 230, curY + 6);
+    doc.text('COMPROMISED', startX + 320, curY + 6);
+    doc.text('FAILURE RATE', startX + 420, curY + 6);
+
+    curY += 20;
 
     departments.forEach((dept, idx) => {
-      if (idx % 2 === 1) {
-        doc.rect(startX, currentY, 515, 18).fill('#F8FAFC');
+      checkPageBreak(22);
+      curY = doc.y;
+
+      const rowBg = idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF';
+      doc.rect(startX, curY, tableWidth, 18).fill(rowBg);
+      doc.rect(startX, curY, tableWidth, 18).strokeColor('#E2E8F0').lineWidth(0.5).stroke();
+
+      doc.font('Times-Roman').fontSize(9).fillColor('#1E293B');
+      doc.text(dept.department, startX + 12, curY + 5);
+      doc.text(String(dept.totalSent), startX + 150, curY + 5);
+      doc.text(String(dept.clicked), startX + 230, curY + 5);
+
+      if (dept.compromised > 0) {
+        doc.font('Times-Bold').fillColor('#B91C1C').text(String(dept.compromised), startX + 320, curY + 5);
+        doc.text(`${dept.failureRate}%`, startX + 420, curY + 5);
+      } else {
+        doc.fillColor('#047857').text('0', startX + 320, curY + 5);
+        doc.text('0.00%', startX + 420, curY + 5);
       }
-      doc.fillColor('#334155').fontSize(9);
-      doc.text(dept.department, startX + 10, currentY + 5);
-      doc.text(String(dept.totalSent), startX + 140, currentY + 5);
-      doc.text(String(dept.clicked), startX + 220, currentY + 5);
-      doc.text(String(dept.compromised), startX + 310, currentY + 5);
-      doc.text(`${dept.failureRate}%`, startX + 420, currentY + 5);
-      currentY += 18;
+      curY += 18;
+      doc.y = curY;
     });
 
-    // Footer
-    doc.fontSize(8).fillColor('#94A3B8').text(
-      'Confidential — For Internal Security Awareness Evaluation Only',
-      40,
-      780,
-      { align: 'center', width: 515 }
-    );
+    doc.y = curY + 18;
+
+    // ==========================================
+    // 4. TARGET INTERCEPTION & COMPROMISE ROSTER
+    // ==========================================
+    checkPageBreak(140);
+    doc.font('Times-Bold').fontSize(14).fillColor('#0F172A').text('4. Target Interception & Compromise Audit', startX);
+    doc.moveDown(0.3);
+    doc.font('Times-Italic').fontSize(9).fillColor('#475569')
+       .text('Personnel who triggered links or entered credentials on simulated clones:');
+    doc.moveDown(0.5);
+
+    if (clickAudits.length === 0) {
+      doc.font('Times-Bold').fontSize(10).fillColor('#047857')
+         .text('100% RESILIENCE ACHIEVED: Zero personnel clicked or submitted credentials.');
+      doc.moveDown(1.5);
+    } else {
+      curY = doc.y;
+      doc.rect(startX, curY, tableWidth, 20).fill('#E2E8F0');
+      doc.rect(startX, curY, tableWidth, 20).strokeColor('#94A3B8').lineWidth(0.5).stroke();
+
+      doc.font('Times-Bold').fontSize(9).fillColor('#0F172A');
+      doc.text('EMPLOYEE NAME', startX + 10, curY + 6);
+      doc.text('DEPARTMENT', startX + 140, curY + 6);
+      doc.text('INTERACTION TIMESTAMP', startX + 235, curY + 6);
+      doc.text('SEVERITY / BREACH STATUS', startX + 370, curY + 6);
+
+      curY += 20;
+
+      clickAudits.forEach((aud, idx) => {
+        checkPageBreak(24);
+        curY = doc.y;
+
+        const rowBg = aud.submitted ? '#FEF2F2' : (idx % 2 === 1 ? '#F8FAFC' : '#FFFFFF');
+        doc.rect(startX, curY, tableWidth, 20).fill(rowBg);
+        doc.rect(startX, curY, tableWidth, 20).strokeColor(aud.submitted ? '#FCA5A5' : '#E2E8F0').lineWidth(0.5).stroke();
+
+        doc.font(aud.submitted ? 'Times-Bold' : 'Times-Roman').fontSize(9).fillColor(aud.submitted ? '#7F1D1D' : '#1E293B');
+        doc.text(aud.name, startX + 10, curY + 5, { width: 125, ellipsis: true });
+        doc.font('Times-Roman').text(aud.department, startX + 140, curY + 5, { width: 90, ellipsis: true });
+        doc.text(aud.clickedAt, startX + 235, curY + 5, { width: 130, ellipsis: true });
+
+        // SEVERE FORMATTING FOR COMPROMISED PROFILES
+        if (aud.submitted) {
+          doc.font('Times-Bold').fillColor('#B91C1C').text('[CRITICAL] Compromised', startX + 370, curY + 5);
+        } else {
+          doc.font('Times-Roman').fillColor('#D97706').text('[WARNING] Clicked Link Only', startX + 370, curY + 5);
+        }
+
+        curY += 20;
+        doc.y = curY;
+      });
+    }
+
+    doc.y = curY + 20;
+
+    // ==========================================
+    // 5. SECURITY AUDIT DEBRIEF (JOKE / EASTER EGG)
+    // ==========================================
+    checkPageBreak(75);
+    const boxY = doc.y;
+    doc.rect(startX, boxY, tableWidth, 48).fill('#FFFBEB');
+    doc.rect(startX, boxY, tableWidth, 48).strokeColor('#F59E0B').lineWidth(1).stroke();
+
+    // Select compromised victim or first clicker for the punchline
+    const victim = clickAudits.find(a => a.submitted) || clickAudits[0];
+    const jokeName = victim ? victim.name : 'Unknown Target';
+
+    const jokeLines = [
+      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} was caught lacking by a fake Microsoft link.`,
+      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} was caught codemaxxing in 4K during business hours.`,
+      `SECURITY AUDIT DEBRIEF: Employee ${jokeName} fell for the oldest trick in the corporate playbook.`
+    ];
+    const chosenJoke = jokeLines[Math.floor(Math.random() * jokeLines.length)];
+
+    doc.font('Times-Bold').fontSize(10).fillColor('#B45309')
+       .text('POST-SIMULATION INTELLIGENCE NOTE:', startX + 14, boxY + 10);
+    doc.font('Times-Italic').fontSize(9.5).fillColor('#78350F')
+       .text(chosenJoke, startX + 14, boxY + 26, { width: 475 });
+
+    // ==========================================
+    // FOOTER ON ALL PAGES
+    // ==========================================
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+      doc.font('Times-Roman').fontSize(8.5).fillColor('#64748B').text(
+        `CONFIDENTIAL — SME_Phishing_Simulator Evaluation Audit | Page ${i + 1} of ${range.count}`,
+        startX,
+        805,
+        { align: 'center', width: tableWidth }
+      );
+    }
 
     doc.end();
   } catch (error) {
@@ -427,9 +595,9 @@ exports.exportCampaignPDF = async (req, res) => {
     return res.end();
   }
 };
+
 /**
  * GET /api/reports/training-progress
- * Aggregates training completion and quiz assessment results per employee.
  */
 exports.getEmployeeTrainingProgress = async (req, res) => {
   try {

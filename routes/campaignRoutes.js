@@ -6,20 +6,21 @@ const campaignController = require('../controllers/campaignController');
 
 const router = express.Router();
 
-// Require Admin JWT for all campaign operations
+// Require Admin JWT for campaign administration
 router.use(passport.authenticate('jwt', { session: false }));
 
-// Campaign Core CRUD & Dispatch
+// Core Campaign CRUD
 router.post('/', campaignController.createCampaign);
 router.get('/', campaignController.getCampaigns);
 router.get('/:id', campaignController.getCampaignById);
 router.put('/:id', campaignController.updateCampaign);
 router.delete('/:id', campaignController.deleteCampaign);
-router.post('/:id/duplicate', campaignController.duplicateCampaign);
-router.post('/:id/send', campaignController.sendCampaign);
-router.post('/:id/cancel', campaignController.cancelCampaign);
 
-// Target Recipient Management Routes
+// Campaign Dispatch & Duplication
+router.post('/:id/send', campaignController.sendCampaign);
+router.post('/:id/duplicate', campaignController.duplicateCampaign);
+
+// Recipient Management
 router.post('/:id/recipients', campaignController.addRecipients);
 router.get('/:id/recipients', campaignController.getRecipients);
 router.delete('/:id/recipients/:recipientId', campaignController.removeRecipient);
