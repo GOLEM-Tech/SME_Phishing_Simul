@@ -2,51 +2,32 @@
 
 const crypto = require('crypto');
 const pool = require('../config/db');
-const emailService = require('../services/emailService');
+const { sendBulkCampaignQueue } = require('../services/emailService');
 
-const VALID_STATUSES = ['Draft', 'Scheduled', 'Running', 'Completed'];
-
-const ALLOWED_TRANSITIONS = {
-  Draft: ['Scheduled', 'Running'],
-  Scheduled: ['Running', 'Draft'],
-  Running: ['Completed'],
-  Completed: []
-};
-
-function assertTransition(current, next) {
-  if (!ALLOWED_TRANSITIONS[current]) {
-    const err = new Error(`Unknown current status: ${current}`);
-    err.status = 400;
-    throw err;
-  }
-  if (!ALLOWED_TRANSITIONS[current].includes(next)) {
-    const err = new Error(
-      `Invalid transition: '${current}' -> '${next}'. Allowed: [${ALLOWED_TRANSITIONS[current].join(', ') || 'none'}]`
-    );
-    err.status = 400;
-    throw err;
-  }
-}
-
-// POST /api/campaigns
+/**
+ * POST /api/campaigns
+ */
 async function createCampaign(req, res, next) {
   try {
-    const { name, description, scheduled_at, template_id, landing_page_id } = req.body;
+    let { name, description, scheduled_at, template_id, landing_page_id } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ success: false, error: 'Campaign name is required.' });
+    if (!name || name.trim() === '') {
+      name = `Drill Campaign #${Date.now().toString().slice(-4)}`;
     }
+
+    const resolvedTemplateId = parseInt(template_id, 10) || 1;
+    const resolvedLandingId = parseInt(landing_page_id, 10) || 1;
 
     const [result] = await pool.execute(
       `INSERT INTO Campaigns
         (name, description, status, scheduled_at, template_id, landing_page_id, created_by)
        VALUES (?, ?, 'Draft', ?, ?, ?, ?)`,
       [
-        name,
-        description ?? null,
+        name.trim(),
+        description ?? 'Simulated phishing drill',
         scheduled_at ?? null,
-        template_id ?? null,
-        landing_page_id ?? null,
+        resolvedTemplateId,
+        resolvedLandingId,
         req.user?.id ?? null
       ]
     );
@@ -55,6 +36,7 @@ async function createCampaign(req, res, next) {
       success: true,
       message: 'Campaign created successfully.',
       campaign_id: result.insertId,
+      id: result.insertId,
       status: 'Draft'
     });
   } catch (err) {
@@ -62,465 +44,227 @@ async function createCampaign(req, res, next) {
   }
 }
 
-// GET /api/campaigns
+/**
+ * GET /api/campaigns
+ */
 async function getCampaigns(req, res, next) {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
-
-    const offset = (Math.max(1, parseInt(page, 10)) - 1) * Math.max(1, parseInt(limit, 10));
-    const pageSize = Math.min(100, Math.max(1, parseInt(limit, 10)));
-
-    const conditions = [];
-    const params = [];
-
-    if (status) {
-      if (!VALID_STATUSES.includes(status)) {
-        return res.status(400).json({
-          success: false,
-          error: `Invalid status filter. Must be one of: ${VALID_STATUSES.join(', ')}`
-        });
-      }
-      conditions.push('status = ?');
-      params.push(status);
-    }
-
-    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-
-    const [rows] = await pool.execute(
-      `SELECT id, name, description, status, scheduled_at, template_id, landing_page_id, created_by, created_at
-       FROM Campaigns
-       ${where}
-       ORDER BY created_at DESC
-       LIMIT ? OFFSET ?`,
-      [...params, pageSize, offset]
-    );
-
-    const [[{ total }]] = await pool.execute(
-      `SELECT COUNT(*) AS total FROM Campaigns ${where}`,
-      params
+    const [campaigns] = await pool.execute(
+      `SELECT c.id, c.name, c.description, c.status, c.scheduled_at, c.created_at,
+              c.template_id, c.landing_page_id,
+              t.name AS template_name,
+              lp.name AS landing_page_name
+       FROM Campaigns c
+       LEFT JOIN EmailTemplates t ON t.id = c.template_id
+       LEFT JOIN LandingPages lp ON lp.id = c.landing_page_id
+       ORDER BY c.created_at DESC`
     );
 
     return res.status(200).json({
       success: true,
-      total,
-      page: parseInt(page, 10),
-      limit: pageSize,
-      campaigns: rows
+      count: campaigns.length,
+      campaigns
     });
   } catch (err) {
     next(err);
   }
 }
 
-// GET /api/campaigns/:id
+/**
+ * GET /api/campaigns/:id
+ */
 async function getCampaignById(req, res, next) {
   try {
-    const { id } = req.params;
+    const campaignId = parseInt(req.params.id, 10);
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
+    }
 
     const [[campaign]] = await pool.execute(
-      `SELECT id, name, description, status, scheduled_at, template_id, landing_page_id, created_by, created_at
-       FROM Campaigns
-       WHERE id = ?`,
-      [id]
+      `SELECT c.id, c.name, c.description, c.status, c.scheduled_at, c.created_at,
+              c.template_id, c.landing_page_id,
+              t.name AS template_name, t.subject, t.body_html,
+              lp.name AS landing_page_name, lp.slug AS landing_slug
+       FROM Campaigns c
+       LEFT JOIN EmailTemplates t ON t.id = c.template_id
+       LEFT JOIN LandingPages lp ON lp.id = c.landing_page_id
+       WHERE c.id = ?`,
+      [campaignId]
     );
 
     if (!campaign) {
       return res.status(404).json({ success: false, error: 'Campaign not found.' });
     }
 
-    const [recipients] = await pool.execute(
-      `SELECT cr.id AS recipient_id, cr.employee_id, e.name AS employee_name, e.email AS employee_email,
-              cr.tracking_token, cr.sent_at
-       FROM CampaignRecipients cr
-       JOIN Employees e ON e.id = cr.employee_id
-       WHERE cr.campaign_id = ?`,
-      [id]
-    );
-
-    return res.status(200).json({ success: true, ...campaign, recipients });
+    return res.status(200).json({ success: true, campaign });
   } catch (err) {
     next(err);
   }
 }
 
-// PUT /api/campaigns/:id
+/**
+ * PUT /api/campaigns/:id
+ */
 async function updateCampaign(req, res, next) {
   try {
-    const { id } = req.params;
-    const { name, description, scheduled_at, template_id, landing_page_id, status } = req.body;
+    const campaignId = parseInt(req.params.id, 10);
+    const { name, description, status, scheduled_at, template_id, landing_page_id } = req.body;
 
-    const [[existing]] = await pool.execute('SELECT id, status FROM Campaigns WHERE id = ?', [id]);
-
-    if (!existing) {
-      return res.status(404).json({ success: false, error: 'Campaign not found.' });
+    if (Number.isNaN(campaignId)) {
+      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
     }
-
-    if (status !== undefined && status !== existing.status) {
-      assertTransition(existing.status, status);
-    }
-
-    const resolvedStatus = status !== undefined ? status : existing.status;
 
     await pool.execute(
       `UPDATE Campaigns
        SET name = COALESCE(?, name),
            description = COALESCE(?, description),
+           status = COALESCE(?, status),
            scheduled_at = COALESCE(?, scheduled_at),
            template_id = COALESCE(?, template_id),
-           landing_page_id = COALESCE(?, landing_page_id),
-           status = ?
+           landing_page_id = COALESCE(?, landing_page_id)
        WHERE id = ?`,
-      [
-        name ?? null,
-        description ?? null,
-        scheduled_at ?? null,
-        template_id ?? null,
-        landing_page_id ?? null,
-        resolvedStatus,
-        id
-      ]
+      [name, description, status, scheduled_at, template_id, landing_page_id, campaignId]
     );
 
-    return res.status(200).json({
-      success: true,
-      message: 'Campaign updated successfully.',
-      campaign_id: parseInt(id, 10),
-      status: resolvedStatus
-    });
+    return res.status(200).json({ success: true, message: 'Campaign updated successfully.' });
   } catch (err) {
-    if (err.status === 400) {
-      return res.status(400).json({ success: false, error: err.message });
-    }
     next(err);
   }
 }
 
-// DELETE /api/campaigns/:id
+/**
+ * DELETE /api/campaigns/:id
+ */
 async function deleteCampaign(req, res, next) {
   try {
-    const { id } = req.params;
-
-    const [[existing]] = await pool.execute('SELECT id, status FROM Campaigns WHERE id = ?', [id]);
-
-    if (!existing) {
-      return res.status(404).json({ success: false, error: 'Campaign not found.' });
-    }
-
-    if (!['Draft', 'Scheduled'].includes(existing.status)) {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot delete campaign in '${existing.status}' status. Only 'Draft' or 'Scheduled' campaigns may be deleted.`
-      });
-    }
-
-    await pool.execute('DELETE FROM CampaignRecipients WHERE campaign_id = ?', [id]);
-    await pool.execute('DELETE FROM Campaigns WHERE id = ?', [id]);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Campaign deleted successfully.',
-      campaign_id: parseInt(id, 10)
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// POST /api/campaigns/:id/duplicate
-async function duplicateCampaign(req, res, next) {
-  const conn = await pool.getConnection();
-  try {
-    const { id } = req.params;
-
-    await conn.beginTransaction();
-
-    const [[source]] = await conn.execute(
-      `SELECT name, description, scheduled_at, template_id, landing_page_id, created_by
-       FROM Campaigns
-       WHERE id = ?`,
-      [id]
-    );
-
-    if (!source) {
-      await conn.rollback();
-      conn.release();
-      return res.status(404).json({ success: false, error: 'Source campaign not found.' });
-    }
-
-    const [sourceRecipients] = await conn.execute(
-      'SELECT employee_id FROM CampaignRecipients WHERE campaign_id = ?',
-      [id]
-    );
-
-    const [insertResult] = await conn.execute(
-      `INSERT INTO Campaigns
-        (name, description, status, scheduled_at, template_id, landing_page_id, created_by)
-       VALUES (?, ?, 'Draft', ?, ?, ?, ?)`,
-      [
-        `${source.name} (Copy)`,
-        source.description ?? null,
-        source.scheduled_at ?? null,
-        source.template_id ?? null,
-        source.landing_page_id ?? null,
-        req.user?.id ?? source.created_by ?? null
-      ]
-    );
-
-    const newCampaignId = insertResult.insertId;
-
-    if (sourceRecipients.length > 0) {
-      for (const r of sourceRecipients) {
-        const freshToken = crypto.randomBytes(32).toString('hex');
-        await conn.execute(
-          'INSERT INTO CampaignRecipients (campaign_id, employee_id, tracking_token) VALUES (?, ?, ?)',
-          [newCampaignId, r.employee_id, freshToken]
-        );
-      }
-    }
-
-    await conn.commit();
-    conn.release();
-
-    return res.status(201).json({
-      success: true,
-      message: 'Campaign duplicated successfully.',
-      source_campaign_id: parseInt(id, 10),
-      new_campaign_id: newCampaignId,
-      recipients_copied: sourceRecipients.length,
-      status: 'Draft'
-    });
-  } catch (err) {
-    await conn.rollback();
-    conn.release();
-    next(err);
-  }
-}
-
-// POST /api/campaigns/:id/send
-async function sendCampaign(req, res, next) {
-  try {
     const campaignId = parseInt(req.params.id, 10);
-
     if (Number.isNaN(campaignId)) {
       return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
     }
 
-    const result = await emailService.sendBulkCampaignQueue(campaignId);
-
-    return res.status(200).json({
-      success: true,
-      message: `Campaign dispatch finished. Processed ${result.totalProcessed} recipient(s).`,
-      summary: result
-    });
+    await pool.execute('DELETE FROM Campaigns WHERE id = ?', [campaignId]);
+    return res.status(200).json({ success: true, message: 'Campaign deleted successfully.' });
   } catch (err) {
     next(err);
   }
 }
 
-// POST /api/campaigns/:id/recipients
+/**
+ * POST /api/campaigns/:id/duplicate
+ */
+async function duplicateCampaign(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+    const [[original]] = await pool.execute('SELECT * FROM Campaigns WHERE id = ?', [campaignId]);
+
+    if (!original) {
+      return res.status(404).json({ success: false, error: 'Campaign not found.' });
+    }
+
+    const [dup] = await pool.execute(
+      `INSERT INTO Campaigns (name, description, status, scheduled_at, template_id, landing_page_id, created_by)
+       VALUES (?, ?, 'Draft', NULL, ?, ?, ?)`,
+      [`${original.name} (Copy)`, original.description, original.template_id, original.landing_page_id, req.user?.id ?? null]
+    );
+
+    return res.status(201).json({ success: true, new_campaign_id: dup.insertId });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/campaigns/:id/send
+ */
+async function sendCampaign(req, res, next) {
+  try {
+    const campaignId = parseInt(req.params.id, 10);
+    const { senderMask, senderAlias } = req.body;
+
+    const summary = await sendBulkCampaignQueue(campaignId, { senderMask, senderAlias });
+
+    return res.status(200).json({
+      success: true,
+      message: `Campaign dispatch finished. Processed ${summary.totalProcessed} recipient(s).`,
+      summary
+    });
+  } catch (err) {
+    console.error('Campaign dispatch error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+/**
+ * POST /api/campaigns/:id/recipients
+ */
 async function addRecipients(req, res, next) {
   try {
     const campaignId = parseInt(req.params.id, 10);
     const { employee_ids, department } = req.body;
 
-    if (Number.isNaN(campaignId)) {
-      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
-    }
-
-    const [[campaign]] = await pool.execute(
-      'SELECT id, status FROM Campaigns WHERE id = ?',
-      [campaignId]
-    );
-
-    if (!campaign) {
-      return res.status(404).json({ success: false, error: 'Campaign not found.' });
-    }
-
-    if (campaign.status === 'Completed' || campaign.status === 'Running') {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot add recipients to a campaign in '${campaign.status}' status.`
-      });
-    }
-
     let targetIds = [];
-
     if (Array.isArray(employee_ids) && employee_ids.length > 0) {
-      targetIds = employee_ids.map((id) => parseInt(id, 10)).filter(Number.isInteger);
+      targetIds = employee_ids.map(id => parseInt(id, 10)).filter(Number.isInteger);
     } else if (typeof department === 'string' && department.trim() !== '') {
-      const [rows] = await pool.execute(
-        'SELECT id FROM Employees WHERE department = ?',
-        [department.trim()]
-      );
-      targetIds = rows.map((r) => r.id);
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: 'Provide either an array of employee_ids or a department name.'
-      });
+      const [rows] = await pool.execute('SELECT id FROM Employees WHERE department = ?', [department.trim()]);
+      targetIds = rows.map(r => r.id);
     }
 
-    if (targetIds.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'No valid employees found matching the criteria.'
-      });
-    }
-
-    let insertedCount = 0;
-
+    let inserted = 0;
     for (const empId of targetIds) {
-      const [existing] = await pool.execute(
+      const [exists] = await pool.execute(
         'SELECT id FROM CampaignRecipients WHERE campaign_id = ? AND employee_id = ?',
         [campaignId, empId]
       );
-
-      if (existing.length === 0) {
-        const token = crypto.randomBytes(32).toString('hex');
+      if (exists.length === 0) {
+        const token = crypto.randomBytes(24).toString('hex');
         await pool.execute(
           'INSERT INTO CampaignRecipients (campaign_id, employee_id, tracking_token) VALUES (?, ?, ?)',
           [campaignId, empId, token]
         );
-        insertedCount++;
+        inserted++;
       }
     }
 
-    return res.status(200).json({
-      success: true,
-      message: `Successfully assigned ${insertedCount} recipient(s) to campaign ${campaignId}.`,
-      assignedCount: insertedCount
-    });
+    return res.status(200).json({ success: true, assignedCount: inserted });
   } catch (err) {
     next(err);
   }
 }
 
-// GET /api/campaigns/:id/recipients
+/**
+ * GET /api/campaigns/:id/recipients
+ */
 async function getRecipients(req, res, next) {
   try {
     const campaignId = parseInt(req.params.id, 10);
-
-    if (Number.isNaN(campaignId)) {
-      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
-    }
-
     const [recipients] = await pool.execute(
-      `SELECT cr.id AS recipient_id, cr.employee_id, e.name AS employee_name, 
-              e.email AS employee_email, e.department, e.risk_level,
-              cr.tracking_token, cr.sent_at
+      `SELECT cr.id AS recipient_id, cr.employee_id, e.name AS employee_name, e.email AS employee_email, e.department, cr.sent_at
        FROM CampaignRecipients cr
        JOIN Employees e ON e.id = cr.employee_id
-       WHERE cr.campaign_id = ?
-       ORDER BY e.name ASC`,
+       WHERE cr.campaign_id = ?`,
       [campaignId]
     );
-
-    return res.status(200).json({
-      success: true,
-      count: recipients.length,
-      recipients
-    });
+    return res.status(200).json({ success: true, count: recipients.length, recipients });
   } catch (err) {
     next(err);
   }
 }
 
-// DELETE /api/campaigns/:id/recipients/:recipientId
+/**
+ * DELETE /api/campaigns/:id/recipients/:recipientId
+ */
 async function removeRecipient(req, res, next) {
   try {
     const campaignId = parseInt(req.params.id, 10);
     const recipientId = parseInt(req.params.recipientId, 10);
-
-    if (Number.isNaN(campaignId) || Number.isNaN(recipientId)) {
-      return res.status(400).json({ success: false, error: 'Invalid ID parameters.' });
-    }
-
-    const [[recipient]] = await pool.execute(
-      'SELECT id, sent_at FROM CampaignRecipients WHERE id = ? AND campaign_id = ?',
+    await pool.execute(
+      'DELETE FROM CampaignRecipients WHERE id = ? AND campaign_id = ? AND sent_at IS NULL',
       [recipientId, campaignId]
     );
-
-    if (!recipient) {
-      return res.status(404).json({ success: false, error: 'Recipient not found in this campaign.' });
-    }
-
-    if (recipient.sent_at !== null) {
-      return res.status(400).json({
-        success: false,
-        error: 'Cannot remove a recipient who has already been sent an email.'
-      });
-    }
-
-    await pool.execute('DELETE FROM CampaignRecipients WHERE id = ?', [recipientId]);
-
-    return res.status(200).json({
-      success: true,
-      message: 'Recipient removed successfully.'
-    });
+    return res.status(200).json({ success: true, message: 'Recipient removed.' });
   } catch (err) {
     next(err);
-  }
-}
-
-// POST /api/campaigns/:id/cancel
-async function cancelCampaign(req, res, next) {
-  try {
-    const campaignId = parseInt(req.params.id, 10);
-
-    if (Number.isNaN(campaignId)) {
-      return res.status(400).json({ success: false, error: 'Invalid campaign ID.' });
-    }
-
-    const [[campaign]] = await pool.execute(
-      'SELECT id, status FROM Campaigns WHERE id = ?',
-      [campaignId]
-    );
-
-    if (!campaign) {
-      return res.status(404).json({ success: false, error: 'Campaign not found.' });
-    }
-
-    if (['Completed'].includes(campaign.status)) {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot cancel a campaign that is already '${campaign.status}'.`
-      });
-    }
-
-    // Move to Completed to halt further dispatch
-    await pool.execute(
-      "UPDATE Campaigns SET status = 'Completed' WHERE id = ?",
-      [campaignId]
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: `Campaign ${campaignId} has been successfully canceled and closed.`,
-      status: 'Completed'
-    });
-  } catch (err) {
-    next(err);
-  }
-}
-
-// Background scheduler tick runner
-async function runScheduledCampaignsEngine() {
-  try {
-    const [scheduledCampaigns] = await pool.execute(
-      "SELECT id, name FROM Campaigns WHERE status = 'Scheduled' AND scheduled_at <= NOW()"
-    );
-
-    for (const c of scheduledCampaigns) {
-      console.log(`[Scheduler] Auto-launching scheduled campaign #${c.id} ("${c.name}")...`);
-      try {
-        await emailService.sendBulkCampaignQueue(c.id);
-        console.log(`[Scheduler] Successfully executed campaign #${c.id}.`);
-      } catch (err) {
-        console.error(`[Scheduler] Failed to dispatch campaign #${c.id}:`, err.message);
-      }
-    }
-  } catch (error) {
-    console.error('[Scheduler] Error checking scheduled campaigns:', error.message);
   }
 }
 
@@ -534,7 +278,5 @@ module.exports = {
   sendCampaign,
   addRecipients,
   getRecipients,
-  removeRecipient,
-  cancelCampaign,
-  runScheduledCampaignsEngine
+  removeRecipient
 };

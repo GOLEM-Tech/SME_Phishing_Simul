@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SME_Phishing_Simulator | UI Flow Walkthrough</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @keyframes pulseRing {
+      0% { transform: scale(0.8); opacity: 1; }
+      100% { transform: scale(2.3); opacity: 0; }
+    }
+    .cursor-click::after {
+      content: '';
+      position: absolute;
+      inset: -10px;
+      border: 2px solid #3b82f6;
+      border-radius: 9999px;
+      animation: pulseRing 0.6s ease-out forwards;
+    }
+    #virtualCursor {
+      transition: top 0.7s cubic-bezier(0.22, 1, 0.36, 1), left 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden font-sans text-base select-none">
+
+  <!-- VIRTUAL ANIMATED CURSOR -->
+  <div id="virtualCursor" class="fixed z-50 top-1/2 left-1/2 flex items-center justify-center">
+    <div id="cursorDot" class="w-6 h-6 bg-blue-500/30 border-2 border-blue-400 rounded-full shadow-lg shadow-blue-500/50 flex items-center justify-center">
+      <svg class="w-4 h-4 text-white translate-x-0.5 translate-y-0.5" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M5.5 3.21V20.8c0 .45.54.67.85.35l4.86-4.86a.5.5 0 0 1 .35-.15h6.87c.45 0 .67-.54.35-.85L6.35 2.86a.5.5 0 0 0-.85.35Z"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- TOP STORYBOARD BAR -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 z-30">
+    <div class="flex items-center space-x-3">
+      <span class="flex h-3 w-3 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+      </span>
+      <span class="text-sm font-bold tracking-wider uppercase text-slate-100">SME_Phishing_Simulator — Walkthrough</span>
+      <span id="sceneBadge" class="text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-semibold">
+        Scene 1 / 9: User Login & OAuth
+      </span>
+    </div>
+    <div class="flex items-center space-x-3 text-sm text-slate-300">
+      <span>Scene:</span>
+      <select id="sceneSelector" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-slate-100 text-sm focus:outline-none focus:border-blue-500">
+        <option value="0">1. Main Login (OAuth Icons + Admin Portal Button)</option>
+        <option value="1">2. Dedicated Admin Login Screen</option>
+        <option value="2">3. Token Password Reset Page (Cool Page 2)</option>
+        <option value="3">4. Admin Dashboard: Analytics, Funnel & Heatmap</option>
+        <option value="4">5. Admin: Employee Management & CSV Upload</option>
+        <option value="5">6. Admin: Campaign Studio + Masked Gmail Alias</option>
+        <option value="6">7. Target Interception & Safe Password Drop</option>
+        <option value="7">8. Admin: Awareness Quiz Builder & AI Risk</option>
+        <option value="8">9. Employee Portal (Sees Only Own Progress)</option>
+      </select>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT -->
+  <div class="flex-1 relative overflow-hidden bg-slate-950 flex flex-col">
+
+    <!-- SCENE 0: MAIN LOGIN PAGE (WITH GOOGLE/GITHUB ICONS + ADMIN PORTAL OPTION) -->
+    <section id="scene-0" class="flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5">
+        <div class="flex items-center space-x-3">
+          <div class="p-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400">
+            <i data-lucide="shield-check" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-white">SME_Phishing_Simulator</h1>
+            <p class="text-sm text-slate-400">Security Awareness & Training Portal</p>
+          </div>
+        </div>
+
+        <div class="space-y-4 text-sm">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1.5">Email Address</label>
+            <input type="text" readonly value="alice.johnson@internal.sec" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+          </div>
+          <div>
+            <div class="flex justify-between mb-1.5">
+              <label class="text-slate-300 font-medium">Password</label>
+              <span id="s0-forgotLink" class="text-blue-400 hover:underline cursor-pointer">Forgot password?</span>
+            </div>
+            <input type="password" readonly value="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+          </div>
+          <!-- Tweak: Just says "Sign In" -->
+          <button id="s0-signInBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-base shadow-lg shadow-blue-600/20">
+            Sign In
+          </button>
+
+          <div class="relative py-2">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+            <div class="relative flex justify-center text-xs uppercase text-slate-400 bg-slate-900 px-3">Or continue with</div>
+          </div>
+
+          <!-- Tweak: Official Google & GitHub Icons -->
+          <div class="grid grid-cols-2 gap-3">
+            <button id="s0-googleBtn" class="py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg flex items-center justify-center space-x-2.5 text-sm font-medium">
+              <!-- Google SVG Icon -->
+              <svg class="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+                <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"/>
+                <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.9 7.4 24 12 24z"/>
+              </svg>
+              <span>Google</span>
+            </button>
+            <button id="s0-githubBtn" class="py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg flex items-center justify-center space-x-2.5 text-sm font-medium">
+              <!-- GitHub SVG Icon -->
+              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+              </svg>
+              <span>GitHub</span>
+            </button>
+          </div>
+
+          <!-- Tweak: Dedicated Admin Login Option Below OAuth -->
+          <div class="pt-3 border-t border-slate-800 text-center">
+            <button id="s0-adminPortalBtn" class="w-full py-2.5 px-4 bg-indigo-950/50 hover:bg-indigo-900/60 border border-indigo-500/30 rounded-lg text-indigo-300 font-semibold flex items-center justify-center space-x-2 text-sm transition">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+              <span>Admin SOC Login Portal →</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCENE 1: DEDICATED ADMIN LOGIN PAGE -->
+    <section id="scene-1" class="hidden flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/40 rounded-2xl p-8 shadow-2xl space-y-5">
+        <div class="flex items-center justify-between">
+          <span class="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider">Restricted SOC Access</span>
+          <span class="text-xs text-slate-400">← Back to User Login</span>
+        </div>
+        <div class="flex items-center space-x-3">
+          <div class="p-3 bg-indigo-600/20 border border-indigo-500/40 rounded-xl text-indigo-400">
+            <i data-lucide="shield-alert" class="w-7 h-7"></i>
+          </div>
+          <div>
+            <h1 class="text-xl font-bold text-white">SME_Phishing_Simulator</h1>
+            <p class="text-sm text-indigo-300">Administrator Command Authentication</p>
+          </div>
+        </div>
+        <div class="space-y-4 text-sm">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1.5">Administrator Email</label>
+            <input type="text" readonly value="omjalela4@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1.5">Master Password</label>
+            <input type="password" readonly value="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+          </div>
+          <button id="s1-adminSignInBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-base">
+            Sign In
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCENE 2: TOKEN PASSWORD RESET PAGE (KEPT AS IS, ENLARGED TEXT) -->
+    <section id="scene-2" class="hidden flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-xs">
+            /?reset_token=9f86d081884c...
+          </span>
+          <span class="text-emerald-400 font-medium flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> Gmail Link Verified</span>
+        </div>
+        <h2 class="text-lg font-bold text-white">Reset Your Password</h2>
+        <p class="text-slate-400 text-sm">Dispatched via masked alias: <code>omjalela4+account-recovery@gmail.com</code></p>
+        <div>
+          <label class="block text-slate-300 mb-1.5">New Password</label>
+          <input type="password" readonly value="UpdatedPassword123!" class="w-full bg-slate-950 border border-blue-500 rounded-lg p-3 text-white" />
+        </div>
+        <button id="s2-resetBtn" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-lg text-base">Update Password & Sign In</button>
+      </div>
+    </section>
+
+    <!-- ADMIN SHELL (SCENES 3, 4, 5, 7) WITH LARGER FONTS -->
+    <section id="adminShell" class="hidden flex-1 flex overflow-hidden">
+      <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-5 shrink-0 text-sm">
+        <div class="space-y-5">
+          <div class="flex items-center space-x-3 px-2 pb-4 border-b border-slate-800">
+            <i data-lucide="shield-alert" class="w-6 h-6 text-blue-400 shrink-0"></i>
+            <div class="overflow-hidden">
+              <span class="font-bold text-base text-white block truncate">SME_Phishing_Simulator</span>
+              <span class="text-xs text-blue-400 uppercase font-semibold">Admin SOC Console</span>
+            </div>
+          </div>
+          <nav class="space-y-1.5">
+            <div id="nav-overview" class="px-3.5 py-2.5 rounded-xl bg-blue-600/15 text-blue-400 font-semibold flex items-center gap-3">
+              <i data-lucide="bar-chart-2" class="w-5 h-5"></i><span>Analytics & Reports</span>
+            </div>
+            <div id="nav-employees" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
+              <i data-lucide="users" class="w-5 h-5"></i><span>Employee Management</span>
+            </div>
+            <div id="nav-campaigns" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
+              <i data-lucide="send" class="w-5 h-5"></i><span>Campaigns & Mailer</span>
+            </div>
+            <div id="nav-training" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
+              <i data-lucide="graduation-cap" class="w-5 h-5"></i><span>Awareness & AI Risk</span>
+            </div>
+          </nav>
+        </div>
+        <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
+          <div>
+            <p class="font-bold text-sm text-white">Om Jalela (Admin)</p>
+            <p class="text-xs text-slate-400">omjalela4@gmail.com</p>
+          </div>
+          <i data-lucide="log-out" class="w-5 h-5 text-slate-400"></i>
+        </div>
+      </aside>
+
+      <!-- Admin Main Content -->
+      <div class="flex-1 p-8 overflow-y-auto space-y-6">
+
+        <!-- SUBVIEW: ANALYTICS -->
+        <div id="subview-analytics" class="space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Campaign Telemetry & Report Generation</h2>
+              <p class="text-sm text-slate-400 mt-1">Real-time conversion funnels, 24x7 heatmaps, and one-click PDF/CSV exports</p>
+            </div>
+            <div class="flex gap-3">
+              <button class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-medium flex items-center gap-2">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i><span>Export CSV</span>
+              </button>
+              <button id="s3-pdfBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2">
+                <i data-lucide="file-text" class="w-4 h-4"></i><span>Generate PDF Report</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-4 gap-5">
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <span class="text-sm font-medium text-slate-400">Total Targets</span>
+              <p class="text-3xl font-bold text-white mt-2">8</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <span class="text-sm font-medium text-slate-400">Dispatched</span>
+              <p class="text-3xl font-bold text-blue-400 mt-2">8 (100%)</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <span class="text-sm font-medium text-slate-400">Clicked Link</span>
+              <p class="text-3xl font-bold text-amber-400 mt-2">4 (50.0%)</p>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+              <span class="text-sm font-medium text-slate-400">Compromised</span>
+              <p class="text-3xl font-bold text-rose-500 mt-2">3 (37.5%)</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-6">
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 text-sm">
+              <span class="text-base font-bold text-white">Simulation Conversion Funnel</span>
+              <div class="space-y-3 pt-2">
+                <div><div class="flex justify-between mb-1"><span>Sent / Delivered</span><span class="font-bold">8</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-blue-500 w-full"></div></div></div>
+                <div><div class="flex justify-between mb-1"><span>Opened (1x1 Pixel)</span><span class="font-bold">6</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-indigo-500 w-3/4"></div></div></div>
+                <div><div class="flex justify-between mb-1"><span>Clicked Phishing Link</span><span class="font-bold">4</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-amber-500 w-2/4"></div></div></div>
+                <div><div class="flex justify-between mb-1"><span>Submitted Credentials</span><span class="font-bold">3</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-rose-500 w-1/3"></div></div></div>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 text-sm">
+              <div class="flex justify-between">
+                <span class="text-base font-bold text-white">24x7 Temporal Activity Matrix</span>
+                <span class="text-rose-400 font-semibold">Peak Window: Tue 14:00</span>
+              </div>
+              <div id="demoHeatmap" class="grid grid-cols-12 gap-1.5 pt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBVIEW: EMPLOYEES -->
+        <div id="subview-employees" class="hidden space-y-5 text-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Employee Directory Management</h2>
+              <p class="text-sm text-slate-400 mt-1">Search, filter by department or risk level, and import CSV rosters</p>
+            </div>
+            <div class="flex gap-3">
+              <button id="s4-csvBtn" class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl font-medium">Bulk CSV Upload</button>
+              <button class="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold">+ Add Employee</button>
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                <tr><th class="p-4">Employee Name & Email</th><th class="p-4">Department</th><th class="p-4">Risk Level</th><th class="p-4 text-right">Actions</th></tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800">
+                <tr><td class="p-4 font-semibold text-white">Alice Johnson <span class="text-slate-400 font-normal">(alice.johnson@internal.sec)</span></td><td class="p-4">Finance</td><td class="p-4"><span class="px-3 py-1 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-full font-semibold">High</span></td><td class="p-4 text-right text-slate-400">Edit / Delete</td></tr>
+                <tr><td class="p-4 font-semibold text-white">Bob Smith <span class="text-slate-400 font-normal">(bob.smith@internal.sec)</span></td><td class="p-4">IT</td><td class="p-4"><span class="px-3 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full font-semibold">Low</span></td><td class="p-4 text-right text-slate-400">Edit / Delete</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- SUBVIEW: CAMPAIGN & MASKED ALIAS MAILER -->
+        <div id="subview-campaigns" class="hidden space-y-5 text-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Campaign Studio & Masked Gmail Dispatcher</h2>
+              <p class="text-sm text-slate-400 mt-1">Generate lures with Gemini 3.8 Flash and send real emails using display masks & +aliases</p>
+            </div>
+            <button id="s5-dispatchBtn" class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl flex items-center gap-2 text-base">
+              <i data-lucide="send" class="w-4 h-4"></i><span>Send Masked Phishing Mail</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-6">
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+              <span class="text-base font-bold text-blue-400 flex items-center gap-2"><i data-lucide="mail" class="w-5 h-5"></i> Sender Mask & Alias Configuration</span>
+              <div class="space-y-3">
+                <div>
+                  <label class="block text-slate-400 mb-1">Display Name Mask</label>
+                  <input type="text" readonly value="Microsoft 365 Security Alert" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" />
+                </div>
+                <div>
+                  <label class="block text-slate-400 mb-1">Gmail +Alias Tag</label>
+                  <input type="text" readonly value="omjalela4+ms365-security@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-emerald-400 font-mono" />
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+              <span class="text-base font-bold text-white flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-blue-400"></i> Gemini AI Lure Preview</span>
+              <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-sm">
+                <p class="text-slate-300"><strong>From:</strong> "Microsoft 365 Security Alert" &lt;omjalela4+ms365-security@gmail.com&gt;</p>
+                <p class="text-slate-300"><strong>Subject:</strong> URGENT: Password Expiry for {{name}}</p>
+                <p class="text-blue-400 underline pt-2">Click here to verify credentials on Office 365 Portal</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBVIEW: TRAINING & AI RISK -->
+        <div id="subview-training" class="hidden space-y-5 text-sm">
+          <h2 class="text-2xl font-bold text-white">Awareness Quiz Builder & AI Risk Assessment</h2>
+          <div class="grid grid-cols-2 gap-6">
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+              <span class="text-base font-bold text-blue-400">+ Create New Awareness Quiz</span>
+              <input type="text" readonly value="Module: Identifying Masked Sender Aliases" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" />
+              <button id="s7-addQuizBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold">Save Quiz & Questions</button>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
+              <span class="text-base font-bold text-rose-400">Gemini AI Risk Analysis (/api/ai/risk-analysis)</span>
+              <p class="text-slate-300 leading-relaxed">High-Risk Offenders: <strong>Alice Johnson (Finance)</strong> submitted credentials. Auto-assigned remedial quiz.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SCENE 6: TARGET INTERCEPTION -->
+    <section id="scene-6" class="hidden flex-1 flex items-center justify-center p-6 bg-slate-900/60">
+      <div class="grid grid-cols-2 gap-8 max-w-5xl w-full items-center">
+        <div class="bg-white text-slate-900 p-8 rounded-2xl shadow-2xl space-y-4 text-sm">
+          <div class="font-bold text-xl text-blue-700">Microsoft 365</div>
+          <p class="text-slate-600">Enter credentials for <strong>alice.johnson@internal.sec</strong></p>
+          <input type="password" readonly value="SuperSecretCorpPass!" class="w-full border border-slate-300 p-3 rounded-lg" />
+          <button id="s6-submitTrap" class="w-full py-3 bg-blue-600 text-white font-bold rounded-lg text-base">Sign In</button>
+        </div>
+        <div class="bg-slate-900 border-2 border-amber-500 p-7 rounded-2xl space-y-3 text-sm">
+          <span class="px-3 py-1 bg-amber-500/20 text-amber-400 font-bold rounded-full text-xs">SME_PHISHING_SIMULATOR ALERT</span>
+          <h3 class="text-xl font-bold text-white">This Was a Phishing Simulation!</h3>
+          <p class="text-slate-300">Your plaintext password was immediately expunged from memory and never stored. Your Risk Level is now <strong>High</strong>.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SCENE 8: EMPLOYEE PORTAL (SEES ONLY OWN DATA) -->
+    <section id="scene-8" class="hidden flex-1 flex flex-col p-8 max-w-4xl mx-auto w-full space-y-6 text-sm">
+      <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
+        <div>
+          <span class="text-xs uppercase tracking-wider text-emerald-400 font-bold">SME_Phishing_Simulator — Employee Personal Portal</span>
+          <h2 class="text-xl font-bold text-white mt-1">Alice Johnson (alice.johnson@internal.sec)</h2>
+          <p class="text-slate-400">Strict Isolation: Viewing only your personal training progress and risk status</p>
+        </div>
+        <span id="s8-riskBadge" class="px-4 py-1.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-base">Low Risk (Recalibrated)</span>
+      </div>
+
+      <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
+        <h3 class="font-bold text-lg text-white">Assigned Quiz: Phishing Red Flags Assessment</h3>
+        <button id="s8-submitQuizBtn" class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-base">Submit Completed Quiz (Score: 90%)</button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER CONTROLS -->
+  <footer class="bg-slate-900 border-t border-slate-800 px-6 py-3.5 space-y-2 z-30">
+    <div class="text-center">
+      <p id="captionText" class="inline-block bg-slate-950 border border-slate-800 px-5 py-1.5 rounded-full text-sm text-slate-200 font-medium">
+        Initializing SME_Phishing_Simulator walkthrough...
+      </p>
+    </div>
+    <div class="flex items-center space-x-4">
+      <button id="playPauseBtn" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold">Pause</button>
+      <button id="prevSceneBtn" class="p-2 bg-slate-800 rounded text-slate-300"><i data-lucide="skip-back" class="w-4 h-4"></i></button>
+      <button id="nextSceneBtn" class="p-2 bg-slate-800 rounded text-slate-300"><i data-lucide="skip-forward" class="w-4 h-4"></i></button>
+      <div class="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden">
+        <div id="progressBar" class="bg-blue-500 h-full transition-all duration-300" style="width: 11%"></div>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    lucide.createIcons();
+    const demoHeatmap = document.getElementById('demoHeatmap');
+    for (let i = 0; i < 48; i++) {
+      const cell = document.createElement('div');
+      cell.className = `h-4 rounded ${i === 19 || i === 31 ? 'bg-rose-500' : (i % 5 === 0 ? 'bg-blue-600' : 'bg-slate-800')}`;
+      demoHeatmap.appendChild(cell);
+    }
+
+    const SCENES = [
+      { badge: 'Scene 1 / 9: Main Login (OAuth + Admin Option)', caption: 'Main Login: Clean "Sign In" button, Google/GitHub SVG icons, and "Admin SOC Login Portal" button below.', run: (m) => { showSec('scene-0'); m('s0-adminPortalBtn'); } },
+      { badge: 'Scene 2 / 9: Dedicated Admin Login', caption: 'Admin Login Page: Dedicated high-security login portal specifically for SME_Phishing_Simulator Admins.', run: (m) => { showSec('scene-1'); m('s1-adminSignInBtn'); } },
+      { badge: 'Scene 3 / 9: Token Password Reset', caption: 'Password Reset Page: Opened from real Gmail link sent via masked alias (omjalela4+account-recovery@gmail.com).', run: (m) => { showSec('scene-2'); m('s2-resetBtn'); } },
+      { badge: 'Scene 4 / 9: Admin Dashboard (Larger Fonts)', caption: 'Admin Analytics: Larger, readable typography across all KPI cards, Funnel charts, and PDF/CSV export triggers.', run: (m) => { showAdmin('subview-analytics', 'nav-overview'); m('s3-pdfBtn'); } },
+      { badge: 'Scene 5 / 9: Employee Management', caption: 'Employee Management: Add, edit, filter targets, or upload CSV rosters.', run: (m) => { showAdmin('subview-employees', 'nav-employees'); m('s4-csvBtn'); } },
+      { badge: 'Scene 6 / 9: Masked Gmail Phishing Mailer', caption: 'Real-World Mailer: Dispatches phishing emails using custom Display Masks and Gmail +Aliases!', run: (m) => { showAdmin('subview-campaigns', 'nav-campaigns'); m('s5-dispatchBtn'); } },
+      { badge: 'Scene 7 / 9: Target Interception', caption: 'Safe Interception: Victim submits password -> Immediately expunged -> Risk escalated to High.', run: (m) => { showSec('scene-6'); m('s6-submitTrap'); } },
+      { badge: 'Scene 8 / 9: Awareness Quiz Builder & AI Risk', caption: 'Admin Awareness Studio: Admins create new quizzes/questions and run Gemini AI Risk Analysis.', run: (m) => { showAdmin('subview-training', 'nav-training'); m('s7-addQuizBtn'); } },
+      { badge: 'Scene 9 / 9: Isolated Employee Portal', caption: 'Employee Portal: Logged-in user sees ONLY their own risk level, assigned modules, and quiz scores.', run: (m) => { showSec('scene-8'); m('s8-submitQuizBtn'); } }
+    ];
+
+    let cur = 0, playing = true, timer = null;
+    function showSec(id) {
+      ['scene-0','scene-1','scene-2','adminShell','scene-6','scene-8'].forEach(s => document.getElementById(s).classList.add('hidden'));
+      document.getElementById(id).classList.remove('hidden');
+    }
+    function showAdmin(sub, nav) {
+      showSec('adminShell');
+      ['subview-analytics','subview-employees','subview-campaigns','subview-training'].forEach(s => document.getElementById(s).classList.add('hidden'));
+      ['nav-overview','nav-employees','nav-campaigns','nav-training'].forEach(n => document.getElementById(n).className = 'px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3');
+      document.getElementById(sub).classList.remove('hidden');
+      document.getElementById(nav).className = 'px-3.5 py-2.5 rounded-xl bg-blue-600/15 text-blue-400 font-semibold flex items-center gap-3';
+    }
+    function moveCursor(id) {
+      const el = document.getElementById(id), c = document.getElementById('virtualCursor'), d = document.getElementById('cursorDot');
+      if (!el) return;
+      setTimeout(() => {
+        const r = el.getBoundingClientRect();
+        c.style.top = `${r.top + r.height/2}px`; c.style.left = `${r.left + r.width/2}px`;
+        setTimeout(() => { d.classList.add('cursor-click'); setTimeout(() => d.classList.remove('cursor-click'), 600); }, 750);
+      }, 300);
+    }
+    function render(idx) {
+      cur = (idx + SCENES.length) % SCENES.length;
+      document.getElementById('sceneBadge').textContent = SCENES[cur].badge;
+      document.getElementById('captionText').textContent = SCENES[cur].caption;
+      document.getElementById('sceneSelector').value = String(cur);
+      document.getElementById('progressBar').style.width = `${((cur + 1) / SCENES.length) * 100}%`;
+      SCENES[cur].run(moveCursor);
+    }
+    timer = setInterval(() => { if (playing) render(cur + 1); }, 4200);
+    document.getElementById('playPauseBtn').onclick = (e) => { playing = !playing; e.target.textContent = playing ? 'Pause' : 'Play'; };
+    document.getElementById('prevSceneBtn').onclick = () => render(cur - 1);
+    document.getElementById('nextSceneBtn').onclick = () => render(cur + 1);
+    document.getElementById('sceneSelector').onchange = (e) => render(parseInt(e.target.value, 10));
+    render(0);
+  </script>
+</body>
+</html>

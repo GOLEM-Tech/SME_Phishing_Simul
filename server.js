@@ -20,6 +20,7 @@ const templateRoutes = require('./routes/templateRoutes');
 const campaignRoutes = require('./routes/campaignRoutes');
 const landingRoutes = require('./routes/landingRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const quizRoutes = require('./routes/quizRoutes');
 
 // 1. Initialize Express App
 const app = express();
@@ -37,7 +38,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/track', trackingRoutes);
 app.use('/', landingRoutes);
 
-// 5. Protected Administrative, Simulation, and Reporting APIs
+// 5. Protected Administrative, Simulation, Awareness, and Reporting APIs
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
@@ -46,6 +47,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/quizzes', quizRoutes);
 
 // 6. System Health Check Probe
 app.get('/api/health', (req, res) => {
