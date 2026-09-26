@@ -3,13 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SME_Phishing_Simulator | UI Flow Walkthrough</title>
+  <title>SME_Phishing_Simulator | Interactive PPT Walkthrough & Live Demo</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            slate: {
+              850: '#151e2e',
+              900: '#0f172a',
+              950: '#020617'
+            }
+          },
+          gridTemplateColumns: {
+            '24': 'repeat(24, minmax(0, 1fr))'
+          }
+        }
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     @keyframes pulseRing {
       0% { transform: scale(0.8); opacity: 1; }
-      100% { transform: scale(2.3); opacity: 0; }
+      100% { transform: scale(2.4); opacity: 0; }
     }
     .cursor-click::after {
       content: '';
@@ -17,17 +37,17 @@
       inset: -10px;
       border: 2px solid #3b82f6;
       border-radius: 9999px;
-      animation: pulseRing 0.6s ease-out forwards;
+      animation: pulseRing 0.65s ease-out forwards;
     }
     #virtualCursor {
-      transition: top 0.7s cubic-bezier(0.22, 1, 0.36, 1), left 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+      transition: top 0.75s cubic-bezier(0.22, 1, 0.36, 1), left 0.75s cubic-bezier(0.22, 1, 0.36, 1);
       pointer-events: none;
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden font-sans text-base select-none">
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden font-sans text-base selection:bg-blue-600 selection:text-white">
 
-  <!-- VIRTUAL ANIMATED CURSOR -->
+  <!-- VIRTUAL ANIMATED POINTER -->
   <div id="virtualCursor" class="fixed z-50 top-1/2 left-1/2 flex items-center justify-center">
     <div id="cursorDot" class="w-6 h-6 bg-blue-500/30 border-2 border-blue-400 rounded-full shadow-lg shadow-blue-500/50 flex items-center justify-center">
       <svg class="w-4 h-4 text-white translate-x-0.5 translate-y-0.5" viewBox="0 0 24 24" fill="currentColor">
@@ -36,112 +56,132 @@
     </div>
   </div>
 
-  <!-- TOP STORYBOARD BAR -->
-  <header class="h-14 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between shrink-0 z-30">
+  <!-- ===================================================================== -->
+  <!-- TOP PPT PRESENTATION DECK BAR                                         -->
+  <!-- ===================================================================== -->
+  <header class="h-14 bg-slate-900 border-b border-slate-800 px-5 flex items-center justify-between shrink-0 z-40">
     <div class="flex items-center space-x-3">
-      <span class="flex h-3 w-3 relative">
-        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+      <span id="statusDot" class="flex h-3 w-3 relative">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
       </span>
-      <span class="text-sm font-bold tracking-wider uppercase text-slate-100">SME_Phishing_Simulator — Walkthrough</span>
-      <span id="sceneBadge" class="text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-semibold">
-        Scene 1 / 9: User Login & OAuth
+      <span class="text-sm font-extrabold tracking-wider uppercase text-white">SME_Phishing_Simulator</span>
+      <span id="slideBadge" class="text-xs bg-blue-500/15 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full font-bold">
+        Slide 1 / 11
+      </span>
+      <span id="dataSourceBadge" class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-md font-mono">
+        Syncing Live DB...
       </span>
     </div>
-    <div class="flex items-center space-x-3 text-sm text-slate-300">
-      <span>Scene:</span>
-      <select id="sceneSelector" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-slate-100 text-sm focus:outline-none focus:border-blue-500">
-        <option value="0">1. Main Login (OAuth Icons + Admin Portal Button)</option>
-        <option value="1">2. Dedicated Admin Login Screen</option>
-        <option value="2">3. Token Password Reset Page (Cool Page 2)</option>
-        <option value="3">4. Admin Dashboard: Analytics, Funnel & Heatmap</option>
-        <option value="4">5. Admin: Employee Management & CSV Upload</option>
-        <option value="5">6. Admin: Campaign Studio + Masked Gmail Alias</option>
-        <option value="6">7. Target Interception & Safe Password Drop</option>
-        <option value="7">8. Admin: Awareness Quiz Builder & AI Risk</option>
-        <option value="8">9. Employee Portal (Sees Only Own Progress)</option>
+
+    <div class="flex items-center space-x-2.5 text-xs">
+      <button id="prevSlideBtn" title="Previous Slide (Left Arrow)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 font-semibold flex items-center gap-1 transition">
+        <i data-lucide="chevron-left" class="w-4 h-4"></i><span>Prev</span>
+      </button>
+
+      <button id="playPauseBtn" title="Pause / Resume (Spacebar)" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-extrabold flex items-center gap-1.5 shadow transition">
+        <i data-lucide="pause" class="w-3.5 h-3.5"></i><span id="playPauseLabel">PAUSE TO EXPLAIN (Space)</span>
+      </button>
+
+      <button id="nextSlideBtn" title="Next Slide (Right Arrow)" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-slate-200 font-semibold flex items-center gap-1 transition">
+        <span>Next</span><i data-lucide="chevron-right" class="w-4 h-4"></i>
+      </button>
+
+      <select id="slideSelector" class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-100 text-xs font-semibold focus:outline-none focus:border-blue-500">
+        <option value="0">Slide 1: User Login, Google/GitHub OAuth & Forgot Password</option>
+        <option value="1">Slide 2: Dedicated Admin SOC Command Login</option>
+        <option value="2">Slide 3: Gmail Masked Recovery Link & SHA-256 Token Reset</option>
+        <option value="3">Slide 4: OAuth Guard — Employee Onboarding & Dept Selection</option>
+        <option value="4">Slide 5: Admin Page 1 — Telemetry, Funnel, Heatmap & AI Risk</option>
+        <option value="5">Slide 6: Admin Page 2 — OAuth Approval Queue & 4-Tier Risk Roster</option>
+        <option value="6">Slide 7: Admin Page 3 — Masked Gmail Mailer & Gemini 3.8 Lure Studio</option>
+        <option value="7">Slide 8: Live Interception — 5 Cloned Portals (Office365, Axis, Jio, MrBreast)</option>
+        <option value="8">Slide 9: Zero-Credential Drop & 100% Critical Risk Disclosure ("Caught Lacking")</option>
+        <option value="9">Slide 10: Admin Page 4 — Quiz Emailer, Multi-MCQ Builder & Audit Trail</option>
+        <option value="10">Slide 11: Isolated Employee Portal — 7-MCQ Quiz & Risk Step-Down</option>
       </select>
+
+      <button id="toggleNotesBtn" title="Toggle PPT Presenter Notes (Key: N)" class="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 rounded-lg font-bold transition">
+        PPT Notes: ON
+      </button>
     </div>
   </header>
 
-  <!-- MAIN VIEWPORT -->
+  <!-- ===================================================================== -->
+  <!-- MAIN VIEWPORT (EXACT REPLICA OF FINAL INDEX.HTML)                     -->
+  <!-- ===================================================================== -->
   <div class="flex-1 relative overflow-hidden bg-slate-950 flex flex-col">
 
-    <!-- SCENE 0: MAIN LOGIN PAGE (WITH GOOGLE/GITHUB ICONS + ADMIN PORTAL OPTION) -->
-    <section id="scene-0" class="flex-1 flex items-center justify-center p-6">
+    <!-- SLIDE 0: USER LOGIN PAGE -->
+    <main id="slide-0" class="flex-1 flex items-center justify-center p-6 overflow-y-auto">
       <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5">
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3.5">
           <div class="p-3 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400">
             <i data-lucide="shield-check" class="w-7 h-7"></i>
           </div>
           <div>
-            <h1 class="text-xl font-bold text-white">SME_Phishing_Simulator</h1>
+            <h1 class="text-xl font-bold text-white tracking-tight">SME_Phishing_Simulator</h1>
             <p class="text-sm text-slate-400">Security Awareness & Training Portal</p>
           </div>
         </div>
 
         <div class="space-y-4 text-sm">
           <div>
-            <label class="block text-slate-300 font-medium mb-1.5">Email Address</label>
-            <input type="text" readonly value="alice.johnson@internal.sec" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+            <label class="block text-slate-300 font-medium mb-1.5">Employee Email Address</label>
+            <input type="email" readonly value="alice.johnson@internal.sec" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" />
           </div>
           <div>
             <div class="flex justify-between mb-1.5">
               <label class="text-slate-300 font-medium">Password</label>
-              <span id="s0-forgotLink" class="text-blue-400 hover:underline cursor-pointer">Forgot password?</span>
+              <span id="s0-forgotBtn" class="text-blue-400 font-medium cursor-pointer">Forgot password?</span>
             </div>
-            <input type="password" readonly value="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+            <input type="password" readonly value="Employee123!" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" />
           </div>
-          <!-- Tweak: Just says "Sign In" -->
-          <button id="s0-signInBtn" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-base shadow-lg shadow-blue-600/20">
+          <button id="s0-signInBtn" class="w-full py-3 bg-blue-600 text-white font-semibold rounded-xl text-base shadow-lg shadow-blue-600/20">
             Sign In
           </button>
+        </div>
 
-          <div class="relative py-2">
-            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
-            <div class="relative flex justify-center text-xs uppercase text-slate-400 bg-slate-900 px-3">Or continue with</div>
-          </div>
+        <div class="relative py-1">
+          <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-800"></div></div>
+          <div class="relative flex justify-center text-xs uppercase text-slate-400 bg-slate-900 px-3 font-medium">Or continue with</div>
+        </div>
 
-          <!-- Tweak: Official Google & GitHub Icons -->
-          <div class="grid grid-cols-2 gap-3">
-            <button id="s0-googleBtn" class="py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg flex items-center justify-center space-x-2.5 text-sm font-medium">
-              <!-- Google SVG Icon -->
-              <svg class="w-5 h-5" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
-                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
-                <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"/>
-                <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.9 7.4 24 12 24z"/>
-              </svg>
-              <span>Google</span>
-            </button>
-            <button id="s0-githubBtn" class="py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-lg flex items-center justify-center space-x-2.5 text-sm font-medium">
-              <!-- GitHub SVG Icon -->
-              <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
-              </svg>
-              <span>GitHub</span>
-            </button>
-          </div>
+        <div class="grid grid-cols-2 gap-3.5">
+          <button id="s0-googleBtn" class="py-2.5 px-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center space-x-2.5 text-sm font-semibold text-slate-200">
+            <svg class="w-5 h-5" viewBox="0 0 24 24">
+              <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.8 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+              <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+              <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.9z"/>
+              <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.9 7.4 24 12 24z"/>
+            </svg>
+            <span>Google</span>
+          </button>
+          <button class="py-2.5 px-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-center space-x-2.5 text-sm font-semibold text-slate-200">
+            <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+            </svg>
+            <span>GitHub</span>
+          </button>
+        </div>
 
-          <!-- Tweak: Dedicated Admin Login Option Below OAuth -->
-          <div class="pt-3 border-t border-slate-800 text-center">
-            <button id="s0-adminPortalBtn" class="w-full py-2.5 px-4 bg-indigo-950/50 hover:bg-indigo-900/60 border border-indigo-500/30 rounded-lg text-indigo-300 font-semibold flex items-center justify-center space-x-2 text-sm transition">
-              <i data-lucide="lock" class="w-4 h-4"></i>
-              <span>Admin SOC Login Portal →</span>
-            </button>
-          </div>
+        <div class="pt-3 border-t border-slate-800">
+          <button id="s0-adminPortalBtn" class="w-full py-3 px-4 bg-indigo-950/50 border border-indigo-500/30 rounded-xl text-indigo-300 font-semibold flex items-center justify-center space-x-2 text-sm">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+            <span>Admin SOC Login Portal →</span>
+          </button>
         </div>
       </div>
-    </section>
+    </main>
 
-    <!-- SCENE 1: DEDICATED ADMIN LOGIN PAGE -->
-    <section id="scene-1" class="hidden flex-1 flex items-center justify-center p-6">
-      <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/40 rounded-2xl p-8 shadow-2xl space-y-5">
+    <!-- SLIDE 1: DEDICATED ADMIN LOGIN -->
+    <main id="slide-1" class="hidden flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md bg-slate-900 border-2 border-indigo-500/40 rounded-2xl p-8 shadow-2xl space-y-6">
         <div class="flex items-center justify-between">
           <span class="px-3 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-xs font-bold uppercase tracking-wider">Restricted SOC Access</span>
           <span class="text-xs text-slate-400">← Back to User Login</span>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3.5">
           <div class="p-3 bg-indigo-600/20 border border-indigo-500/40 rounded-xl text-indigo-400">
             <i data-lucide="shield-alert" class="w-7 h-7"></i>
           </div>
@@ -153,325 +193,884 @@
         <div class="space-y-4 text-sm">
           <div>
             <label class="block text-slate-300 font-medium mb-1.5">Administrator Email</label>
-            <input type="text" readonly value="omjalela4@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+            <input type="email" readonly value="omjalela4@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" />
           </div>
           <div>
             <label class="block text-slate-300 font-medium mb-1.5">Master Password</label>
-            <input type="password" readonly value="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white text-sm" />
+            <input type="password" readonly value="••••••••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white text-sm" />
           </div>
-          <button id="s1-adminSignInBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg text-base">
+          <button id="s1-adminSignInBtn" class="w-full py-3 bg-indigo-600 text-white font-semibold rounded-xl text-base shadow-lg shadow-indigo-600/20">
             Sign In
           </button>
         </div>
       </div>
-    </section>
+    </main>
 
-    <!-- SCENE 2: TOKEN PASSWORD RESET PAGE (KEPT AS IS, ENLARGED TEXT) -->
-    <section id="scene-2" class="hidden flex-1 flex items-center justify-center p-6">
+    <!-- SLIDE 2: TOKEN PASSWORD RESET PAGE -->
+    <main id="slide-2" class="hidden flex-1 flex items-center justify-center p-6">
       <div class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5 text-sm">
         <div class="flex items-center justify-between">
-          <span class="px-3 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-xs">
-            /?reset_token=9f86d081884c...
+          <span class="px-3 py-1 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono text-xs">
+            /?reset_token=f65601e4c837fc92...
           </span>
-          <span class="text-emerald-400 font-medium flex items-center gap-1.5"><i data-lucide="check-circle" class="w-4 h-4"></i> Gmail Link Verified</span>
+          <span class="text-emerald-400 font-semibold text-xs flex items-center gap-1"><i data-lucide="check-circle" class="w-4 h-4"></i> SHA-256 Verified</span>
         </div>
-        <h2 class="text-lg font-bold text-white">Reset Your Password</h2>
-        <p class="text-slate-400 text-sm">Dispatched via masked alias: <code>omjalela4+account-recovery@gmail.com</code></p>
         <div>
-          <label class="block text-slate-300 mb-1.5">New Password</label>
-          <input type="password" readonly value="UpdatedPassword123!" class="w-full bg-slate-950 border border-blue-500 rounded-lg p-3 text-white" />
+          <h2 class="text-xl font-bold text-white">Set New Account Password</h2>
+          <p class="text-xs text-slate-400 mt-1">Dispatched via Masked Gmail Alias: <code class="text-emerald-400">spotifykaemailaddress+account-recovery@gmail.com</code></p>
         </div>
-        <button id="s2-resetBtn" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-lg text-base">Update Password & Sign In</button>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">New Password</label>
+            <input type="password" readonly value="NewStrongAdminPass!" class="w-full bg-slate-950 border border-blue-500 rounded-xl p-3 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-medium mb-1">Confirm New Password</label>
+            <input type="password" readonly value="NewStrongAdminPass!" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white" />
+          </div>
+          <button id="s2-updatePassBtn" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl text-base">
+            Update Password & Sign In
+          </button>
+        </div>
       </div>
-    </section>
+    </main>
 
-    <!-- ADMIN SHELL (SCENES 3, 4, 5, 7) WITH LARGER FONTS -->
-    <section id="adminShell" class="hidden flex-1 flex overflow-hidden">
-      <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-5 shrink-0 text-sm">
-        <div class="space-y-5">
-          <div class="flex items-center space-x-3 px-2 pb-4 border-b border-slate-800">
-            <i data-lucide="shield-alert" class="w-6 h-6 text-blue-400 shrink-0"></i>
+    <!-- SLIDE 3: OAUTH NON-ADMIN ONBOARDING & DEPARTMENT SELECTION -->
+    <main id="slide-3" class="hidden flex-1 flex items-center justify-center p-6">
+      <div class="w-full max-w-md bg-slate-900 border-2 border-amber-500/40 rounded-2xl p-8 shadow-2xl space-y-5 text-sm">
+        <div class="flex items-center justify-between">
+          <span class="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold uppercase tracking-wider">
+            OAuth Employee Onboarding
+          </span>
+          <span class="text-xs text-slate-400">Privilege Escalation Blocked</span>
+        </div>
+        <div>
+          <h2 class="text-xl font-bold text-white">Complete Your Employee Profile</h2>
+          <p class="text-slate-400 mt-1 text-xs">Unrecognized OAuth accounts cannot log in as Admin. Your OAuth profile has been routed to Employee Onboarding:</p>
+        </div>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-slate-400 mb-1">OAuth Display Name</label>
+            <input type="text" readonly value="Rahul Verma (Google OAuth)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white" />
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1">Verified OAuth Email</label>
+            <input type="email" readonly value="rahul.verma.oauth@gmail.com" class="w-full bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 text-slate-400" />
+          </div>
+          <div>
+            <label class="block text-slate-300 font-semibold mb-1">Select Your Corporate Department</label>
+            <select class="w-full bg-slate-950 border border-blue-500 rounded-xl p-2.5 text-white">
+              <option selected>Finance</option>
+              <option>HR</option>
+              <option>IT</option>
+              <option>Engineering</option>
+            </select>
+          </div>
+          <button id="s3-submitOAuthBtn" class="w-full py-3 bg-blue-600 text-white font-bold rounded-xl text-sm">
+            Submit for Admin Approval
+          </button>
+          <div class="p-3 bg-amber-950/30 border border-amber-500/30 rounded-xl text-center text-xs text-amber-300">
+            ⏳ Status: <strong>Pending Admin Approval</strong> in Employee Management Queue
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- =================================================================== -->
+    <!-- ADMIN SHELL (SLIDES 4, 5, 6, 9)                                     -->
+    <!-- =================================================================== -->
+    <div id="adminShell" class="hidden flex-1 flex overflow-hidden">
+      <aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-6 shrink-0">
+        <div class="space-y-6">
+          <div class="flex items-center space-x-3 pb-5 border-b border-slate-800">
+            <div class="p-2.5 bg-blue-600/20 border border-blue-500/30 rounded-xl text-blue-400">
+              <i data-lucide="shield-alert" class="w-6 h-6"></i>
+            </div>
             <div class="overflow-hidden">
               <span class="font-bold text-base text-white block truncate">SME_Phishing_Simulator</span>
-              <span class="text-xs text-blue-400 uppercase font-semibold">Admin SOC Console</span>
+              <span class="text-xs text-blue-400 uppercase font-semibold tracking-wider">Admin SOC Console</span>
             </div>
           </div>
-          <nav class="space-y-1.5">
-            <div id="nav-overview" class="px-3.5 py-2.5 rounded-xl bg-blue-600/15 text-blue-400 font-semibold flex items-center gap-3">
+
+          <nav class="space-y-2 text-sm">
+            <div id="nav-analytics" class="w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center space-x-3">
               <i data-lucide="bar-chart-2" class="w-5 h-5"></i><span>Analytics & Reports</span>
             </div>
-            <div id="nav-employees" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
-              <i data-lucide="users" class="w-5 h-5"></i><span>Employee Management</span>
+            <div id="nav-employees" class="w-full px-4 py-3 rounded-xl text-slate-300 font-medium flex items-center justify-between">
+              <span class="flex items-center space-x-3"><i data-lucide="users" class="w-5 h-5"></i><span>Employee Management</span></span>
+              <span class="px-2 py-0.5 bg-amber-500 text-slate-950 rounded-full text-xs font-extrabold">2</span>
             </div>
-            <div id="nav-campaigns" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
+            <div id="nav-campaigns" class="w-full px-4 py-3 rounded-xl text-slate-300 font-medium flex items-center space-x-3">
               <i data-lucide="send" class="w-5 h-5"></i><span>Campaigns & Mailer</span>
             </div>
-            <div id="nav-training" class="px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3">
-              <i data-lucide="graduation-cap" class="w-5 h-5"></i><span>Awareness & AI Risk</span>
+            <div id="nav-awareness" class="w-full px-4 py-3 rounded-xl text-slate-300 font-medium flex items-center space-x-3">
+              <i data-lucide="graduation-cap" class="w-5 h-5"></i><span>Awareness & Quizzes</span>
             </div>
           </nav>
         </div>
+
         <div class="pt-4 border-t border-slate-800 flex items-center justify-between">
-          <div>
-            <p class="font-bold text-sm text-white">Om Jalela (Admin)</p>
-            <p class="text-xs text-slate-400">omjalela4@gmail.com</p>
+          <div class="flex items-center space-x-2.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <div>
+              <p class="font-bold text-sm text-white">Om Jalela (Lead Admin)</p>
+              <p class="text-xs text-slate-400">omjalela4@gmail.com</p>
+            </div>
           </div>
-          <i data-lucide="log-out" class="w-5 h-5 text-slate-400"></i>
+          <i data-lucide="log-out" class="w-4 h-4 text-slate-400"></i>
         </div>
       </aside>
 
-      <!-- Admin Main Content -->
-      <div class="flex-1 p-8 overflow-y-auto space-y-6">
+      <!-- Admin Workspace Content -->
+      <div class="flex-1 overflow-y-auto p-7 space-y-6 pb-44">
 
-        <!-- SUBVIEW: ANALYTICS -->
-        <div id="subview-analytics" class="space-y-6">
-          <div class="flex items-center justify-between">
+        <!-- SLIDE 4: ADMIN PAGE 1 — ANALYTICS, FUNNEL, HEATMAP & PDF -->
+        <section id="sub-analytics" class="space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 class="text-2xl font-bold text-white">Campaign Telemetry & Report Generation</h2>
-              <p class="text-sm text-slate-400 mt-1">Real-time conversion funnels, 24x7 heatmaps, and one-click PDF/CSV exports</p>
+              <h2 class="text-2xl font-bold text-white">Telemetry, Risk Assessment & Report Generation</h2>
+              <p class="text-sm text-slate-400">Live conversion funnels, 24x7 temporal heatmaps, Gemini AI Risk Engine & Times New Roman PDF Reports</p>
             </div>
-            <div class="flex gap-3">
-              <button class="px-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm font-medium flex items-center gap-2">
-                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-emerald-400"></i><span>Export CSV</span>
+            <div class="flex items-center space-x-3">
+              <button class="px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-sm font-semibold text-emerald-400 flex items-center space-x-2">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4"></i><span>Export CSV</span>
               </button>
-              <button id="s3-pdfBtn" class="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold flex items-center gap-2">
-                <i data-lucide="file-text" class="w-4 h-4"></i><span>Generate PDF Report</span>
+              <button id="s4-pdfBtn" class="px-4 py-2.5 bg-blue-600 rounded-xl text-sm font-semibold text-white flex items-center space-x-2 shadow-lg shadow-blue-600/20">
+                <i data-lucide="file-text" class="w-4 h-4"></i><span>Generate PDF Report (Times New Roman)</span>
               </button>
             </div>
           </div>
 
           <div class="grid grid-cols-4 gap-5">
-            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
               <span class="text-sm font-medium text-slate-400">Total Targets</span>
-              <p class="text-3xl font-bold text-white mt-2">8</p>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span id="p-totalTargets" class="text-3xl font-bold text-white">25</span>
+                <span class="text-xs text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-lg font-medium">Roster Active</span>
+              </div>
             </div>
-            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <span class="text-sm font-medium text-slate-400">Dispatched</span>
-              <p class="text-3xl font-bold text-blue-400 mt-2">8 (100%)</p>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <span class="text-sm font-medium text-slate-400">Emails Dispatched</span>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span id="p-totalSent" class="text-3xl font-bold text-blue-400">15</span>
+                <span class="text-xs text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg font-medium">12 Opened (80%)</span>
+              </div>
             </div>
-            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <span class="text-sm font-medium text-slate-400">Clicked Link</span>
-              <p class="text-3xl font-bold text-amber-400 mt-2">4 (50.0%)</p>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <span class="text-sm font-medium text-slate-400">Intercepted Clicks (40% Risk)</span>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span id="p-totalClicked" class="text-3xl font-bold text-amber-400">9</span>
+                <span class="text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg font-bold">60.0%</span>
+              </div>
             </div>
-            <div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-              <span class="text-sm font-medium text-slate-400">Compromised</span>
-              <p class="text-3xl font-bold text-rose-500 mt-2">3 (37.5%)</p>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
+              <span class="text-sm font-medium text-slate-400">Compromised (100% Risk)</span>
+              <div class="mt-2 flex items-baseline justify-between">
+                <span id="p-totalCompromised" class="text-3xl font-bold text-rose-500">6</span>
+                <span class="text-xs text-rose-400 bg-rose-500/10 px-2.5 py-1 rounded-lg font-bold">40.0%</span>
+              </div>
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-6">
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 text-sm">
-              <span class="text-base font-bold text-white">Simulation Conversion Funnel</span>
-              <div class="space-y-3 pt-2">
-                <div><div class="flex justify-between mb-1"><span>Sent / Delivered</span><span class="font-bold">8</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-blue-500 w-full"></div></div></div>
-                <div><div class="flex justify-between mb-1"><span>Opened (1x1 Pixel)</span><span class="font-bold">6</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-indigo-500 w-3/4"></div></div></div>
-                <div><div class="flex justify-between mb-1"><span>Clicked Phishing Link</span><span class="font-bold">4</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-amber-500 w-2/4"></div></div></div>
-                <div><div class="flex justify-between mb-1"><span>Submitted Credentials</span><span class="font-bold">3</span></div><div class="h-4 bg-slate-800 rounded-lg overflow-hidden"><div class="h-full bg-rose-500 w-1/3"></div></div></div>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+              <div class="mb-2">
+                <h3 class="text-base font-bold text-white">Simulation Funnel Conversion</h3>
+                <p class="text-xs text-slate-400">Campaign #1: Q3 Executive Payroll & Tax Verification Drill</p>
+              </div>
+              <div class="relative h-56">
+                <canvas id="previewFunnelChart"></canvas>
               </div>
             </div>
 
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4 text-sm">
-              <div class="flex justify-between">
-                <span class="text-base font-bold text-white">24x7 Temporal Activity Matrix</span>
-                <span class="text-rose-400 font-semibold">Peak Window: Tue 14:00</span>
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+              <div class="flex items-center justify-between mb-2">
+                <div>
+                  <h3 class="text-base font-bold text-white">24x7 Activity Matrix (Temporal Heatmap)</h3>
+                  <p class="text-xs text-slate-400">Aggregated email opens, link clicks & credential drops by hour</p>
+                </div>
+                <span class="text-xs text-rose-400 font-bold">Peak: Mon/Tue 09:00–15:00</span>
               </div>
-              <div id="demoHeatmap" class="grid grid-cols-12 gap-1.5 pt-2"></div>
+              <div id="previewHeatmapGrid" class="grid grid-cols-24 gap-1 pt-2"></div>
+              <div class="mt-3 p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300">
+                <strong class="text-blue-400">Gemini AI Risk Engine:</strong> High-risk repeat compromises detected in <strong>Finance (Alice Johnson, Edward Norton)</strong> and <strong>HR (Hannah Abbott)</strong>. Auto-recommend <em>Quiz 3: BEC & Payroll Fraud</em>.
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- SUBVIEW: EMPLOYEES -->
-        <div id="subview-employees" class="hidden space-y-5 text-sm">
+        <!-- SLIDE 5: ADMIN PAGE 2 — OAUTH APPROVALS & 4-TIER BEHAVIORAL RISK ROSTER -->
+        <section id="sub-employees" class="hidden space-y-5">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="text-2xl font-bold text-white">Employee Directory Management</h2>
-              <p class="text-sm text-slate-400 mt-1">Search, filter by department or risk level, and import CSV rosters</p>
+              <h2 class="text-2xl font-bold text-white">Employee Directory & OAuth Approvals</h2>
+              <p class="text-sm text-slate-400">4-Tier Behavioral Risk: Perfect (0% Unopened) | Low (15% Opened) | High (40% Clicked) | CRITICAL (100% Submitted)</p>
+            </div>
+            <div class="flex gap-2.5 text-xs">
+              <span class="px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-slate-300">Filter: All 4 Risk Tiers</span>
+              <button class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-xl">+ Add Employee</button>
+              <button class="px-4 py-2 bg-slate-800 border border-slate-700 text-slate-200 font-semibold rounded-xl">Import CSV</button>
+            </div>
+          </div>
+
+          <!-- Pending OAuth Approvals Queue -->
+          <div class="bg-slate-900 border-2 border-amber-500/40 rounded-2xl overflow-hidden">
+            <div class="px-5 py-3 bg-amber-500/10 border-b border-amber-500/20 flex items-center justify-between">
+              <span class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="user-check" class="w-4 h-4 text-amber-400"></i> Pending OAuth Employee Approvals</span>
+              <span class="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold">2 Pending</span>
+            </div>
+            <table class="w-full text-left text-sm">
+              <tbody class="divide-y divide-slate-800">
+                <tr>
+                  <td class="py-3 px-5"><span class="font-bold text-white">Rahul Verma</span> <span class="text-xs text-amber-400 ml-2">(rahul.verma.oauth@gmail.com)</span></td>
+                  <td class="py-3 px-5"><span class="px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold">Dept: Finance</span></td>
+                  <td class="py-3 px-5 text-right space-x-2">
+                    <button id="s5-approveBtn" class="px-3.5 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Approve</button>
+                    <button class="px-3.5 py-1.5 bg-rose-950 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold">Ignore</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Active Roster Showing All 4 Behavioral Risk Tiers -->
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-950 text-slate-400 uppercase text-xs border-b border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-5">Employee Name & Email</th>
+                  <th class="py-3.5 px-5">Department</th>
+                  <th class="py-3.5 px-5">Email Reaction</th>
+                  <th class="py-3.5 px-5">Behavioral Risk Score</th>
+                </tr>
+              </thead>
+              <tbody id="previewEmployeeBody" class="divide-y divide-slate-800 text-slate-200">
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">Alice Johnson <span class="text-xs text-slate-400 font-normal">(alice.johnson@internal.sec)</span></td>
+                  <td class="py-3.5 px-5">Finance</td>
+                  <td class="py-3.5 px-5 text-xs text-rose-400">Opened → Clicked → Submitted Password</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs bg-rose-600/25 text-rose-300 border border-rose-500 font-extrabold animate-pulse">CRITICAL VERY HIGH (100% Risk)</span></td>
+                </tr>
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">Charlie Brown <span class="text-xs text-slate-400 font-normal">(charlie.brown@internal.sec)</span></td>
+                  <td class="py-3.5 px-5">HR</td>
+                  <td class="py-3.5 px-5 text-xs text-amber-400">Opened → Clicked Link Only</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">High (40% Risk)</span></td>
+                </tr>
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">Bob Smith <span class="text-xs text-slate-400 font-normal">(bob.smith@internal.sec)</span></td>
+                  <td class="py-3.5 px-5">IT</td>
+                  <td class="py-3.5 px-5 text-xs text-emerald-400">Opened Email Only (1x1 Pixel)</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">Low (15% Risk)</span></td>
+                </tr>
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">Diana Prince <span class="text-xs text-slate-400 font-normal">(diana.prince@internal.sec)</span></td>
+                  <td class="py-3.5 px-5">Engineering</td>
+                  <td class="py-3.5 px-5 text-xs text-cyan-300">Did Not Open Email</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-semibold">Perfect (0% Risk)</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- SLIDE 6: ADMIN PAGE 3 — CAMPAIGNS, MASKED MAILER & GEMINI AI STUDIO -->
+        <section id="sub-campaigns" class="hidden space-y-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white">Campaign Studio & Masked Gmail Dispatcher</h2>
+              <p class="text-sm text-slate-400">Generate lures with Gemini 3.8 Flash (auto-saved to MySQL) and dispatch via masked Gmail +aliases</p>
             </div>
             <div class="flex gap-3">
-              <button id="s4-csvBtn" class="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl font-medium">Bulk CSV Upload</button>
-              <button class="px-4 py-2 bg-blue-600 text-white rounded-xl font-semibold">+ Add Employee</button>
+              <button class="px-4 py-2.5 bg-slate-800 border border-slate-700 text-white text-sm font-semibold rounded-xl">+ New Drill Campaign</button>
+              <button id="s6-aiBtn" class="px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4"></i><span>Gemini AI Lure Studio</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-blue-400">Active SMTP Mask, Alias & 5 Cloned Landing Portals</span>
+              <span class="text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1 rounded-full font-semibold">Relay: spotifykaemailaddress@gmail.com</span>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Sender Display Mask</label>
+                <input type="text" readonly value="Microsoft 365 Security Alert" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">Gmail +Alias Tag</label>
+                <input type="text" readonly value="spotifykaemailaddress+ms365-security@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-emerald-400 font-mono text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">5 Cloned Landing Pages</label>
+                <div class="flex flex-wrap gap-1 text-xs">
+                  <span class="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-blue-400">Office 365</span>
+                  <span class="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-rose-400">Google</span>
+                  <span class="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-pink-400">Axis Bank</span>
+                  <span class="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-indigo-400">Jio 5G</span>
+                  <span class="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded text-cyan-400">MrBreast</span>
+                </div>
+              </div>
             </div>
           </div>
 
           <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <table class="w-full text-left text-sm">
-              <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
-                <tr><th class="p-4">Employee Name & Email</th><th class="p-4">Department</th><th class="p-4">Risk Level</th><th class="p-4 text-right">Actions</th></tr>
+              <thead class="bg-slate-950 text-slate-400 uppercase text-xs border-b border-slate-800">
+                <tr>
+                  <th class="py-3.5 px-5">Campaign Name</th>
+                  <th class="py-3.5 px-5">Status</th>
+                  <th class="py-3.5 px-5">Template & Landing Clone</th>
+                  <th class="py-3.5 px-5 text-right">Actions</th>
+                </tr>
               </thead>
-              <tbody class="divide-y divide-slate-800">
-                <tr><td class="p-4 font-semibold text-white">Alice Johnson <span class="text-slate-400 font-normal">(alice.johnson@internal.sec)</span></td><td class="p-4">Finance</td><td class="p-4"><span class="px-3 py-1 bg-rose-500/15 text-rose-400 border border-rose-500/30 rounded-full font-semibold">High</span></td><td class="p-4 text-right text-slate-400">Edit / Delete</td></tr>
-                <tr><td class="p-4 font-semibold text-white">Bob Smith <span class="text-slate-400 font-normal">(bob.smith@internal.sec)</span></td><td class="p-4">IT</td><td class="p-4"><span class="px-3 py-1 bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full font-semibold">Low</span></td><td class="p-4 text-right text-slate-400">Edit / Delete</td></tr>
+              <tbody id="previewCampaignBody" class="divide-y divide-slate-800">
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">Q3 Executive Payroll & Tax Verification Drill</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Completed</span></td>
+                  <td class="py-3.5 px-5 text-xs text-blue-400">Template #3 → Office 365 Clone</td>
+                  <td class="py-3.5 px-5 text-right space-x-2">
+                    <button id="s6-sendBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">Send Masked Phishing Mail</button>
+                    <button class="px-3.5 py-2 bg-slate-800 text-slate-200 rounded-xl border border-slate-700 text-xs font-semibold">PDF</button>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="py-3.5 px-5 font-semibold text-white">MrBreast $50,000 Creator Collab Bait</td>
+                  <td class="py-3.5 px-5"><span class="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30">Running</span></td>
+                  <td class="py-3.5 px-5 text-xs text-cyan-400">Template #6 → MrBreast YouTube Clone</td>
+                  <td class="py-3.5 px-5 text-right space-x-2">
+                    <button class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">Send Masked Phishing Mail</button>
+                    <button class="px-3.5 py-2 bg-slate-800 text-slate-200 rounded-xl border border-slate-700 text-xs font-semibold">PDF</button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
+        </section>
+
+        <!-- SLIDE 9: ADMIN PAGE 4 — QUIZ ASSIGNMENT EMAILER & MULTI-MCQ BUILDER -->
+        <section id="sub-awareness" class="hidden space-y-5">
+          <div>
+            <h2 class="text-2xl font-bold text-white">Awareness Quiz Assignment, Multi-MCQ Studio & Audit Trail</h2>
+            <p class="text-sm text-slate-400">Assign 7-MCQ quizzes (dispatches real Gmail notifications) or build multi-question quizzes</p>
+          </div>
+
+          <div class="bg-slate-900 border-2 border-emerald-500/30 rounded-2xl p-5 space-y-3 text-sm">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-emerald-400">Assign Mandatory Quiz & Send Email Notification to Employees</span>
+              <span class="text-xs bg-emerald-500/10 text-emerald-300 px-3 py-1 rounded-full font-semibold">From: spotifykaemailaddress+training-compliance@gmail.com</span>
+            </div>
+            <div class="grid grid-cols-4 gap-3 items-end">
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">1. Select Quiz (5 Seeded × 7 MCQs)</label>
+                <input type="text" readonly value="Quiz 2: URL & Masked Sender Aliases (7 MCQs)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">2. Assignment Scope</label>
+                <input type="text" readonly value="All High / Critical Risk (40% & 100%)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-white text-xs" />
+              </div>
+              <div>
+                <label class="block text-xs text-slate-400 mb-1">3. Target Employees</label>
+                <input type="text" readonly value="Alice Johnson, Charlie Brown (+6 others)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-amber-300 text-xs" />
+              </div>
+              <button id="s9-assignBtn" class="py-2.5 bg-emerald-600 text-white font-bold rounded-xl text-xs shadow-lg">
+                Assign Quiz & Send Email
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-5 text-sm">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="font-bold text-white">Multi-MCQ Quiz Builder</span>
+                <span id="s9-addMcqBtn" class="px-3 py-1 bg-blue-600/20 border border-blue-500/30 text-blue-300 rounded-lg text-xs font-bold">+ Add Another MCQ Question</span>
+              </div>
+              <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-xs">
+                <span class="text-blue-400 font-bold">MCQ Question #1 (of 7)</span>
+                <input type="text" readonly value="An email displays 'Microsoft 365' but the address is 'alert+ms@gmail.com'. Is it safe?" class="w-full bg-slate-900 border border-slate-800 rounded p-2 text-white" />
+              </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2.5">
+              <span class="font-bold text-white">5 Active Curriculum Quizzes (35 Total MCQs)</span>
+              <div class="space-y-2 text-xs">
+                <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex justify-between"><span>Quiz 1: Phishing Red Flags & Social Engineering</span><span class="text-blue-400 font-bold">7 MCQs (70%)</span></div>
+                <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex justify-between"><span>Quiz 2: URL Inspection & Masked Sender Aliases</span><span class="text-blue-400 font-bold">7 MCQs (70%)</span></div>
+                <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex justify-between"><span>Quiz 3: Business Email Compromise & Payroll Fraud</span><span class="text-blue-400 font-bold">7 MCQs (70%)</span></div>
+                <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex justify-between"><span>Quiz 4: MFA Fatigue & Credential Harvesting Defense</span><span class="text-blue-400 font-bold">7 MCQs (70%)</span></div>
+                <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg flex justify-between"><span>Quiz 5: Ransomware & Malicious Attachment Safety</span><span class="text-blue-400 font-bold">7 MCQs (70%)</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    <!-- SLIDE 7: THE 5 REALISTIC CLONED LANDING PAGES SHOWCASE -->
+    <main id="slide-7" class="hidden flex-1 flex flex-col items-center justify-center p-6 pb-44 overflow-y-auto">
+      <div class="max-w-6xl w-full space-y-5">
+        <div class="text-center space-y-1">
+          <span class="px-3 py-1 bg-amber-500/20 text-amber-300 rounded-full text-xs font-bold uppercase">Slide 8: Target Click Interception (/api/track/click/:token → High 40% Risk)</span>
+          <h2 class="text-2xl font-bold text-white">5 Realistic Cloned Login & Data-Fill Landing Portals</h2>
         </div>
 
-        <!-- SUBVIEW: CAMPAIGN & MASKED ALIAS MAILER -->
-        <div id="subview-campaigns" class="hidden space-y-5 text-sm">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-2xl font-bold text-white">Campaign Studio & Masked Gmail Dispatcher</h2>
-              <p class="text-sm text-slate-400 mt-1">Generate lures with Gemini 3.8 Flash and send real emails using display masks & +aliases</p>
+        <div class="grid grid-cols-5 gap-3.5 text-xs">
+          <!-- 1. Office 365 -->
+          <div class="bg-white text-slate-900 rounded-xl p-4 shadow-xl border-t-4 border-blue-600 flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="font-bold text-blue-700 text-sm">Microsoft 365</div>
+              <p class="font-semibold text-slate-800">Sign in to Outlook</p>
+              <input type="text" readonly value="alice.johnson@internal.sec" class="w-full border p-1.5 rounded text-[11px]" />
+              <input type="password" readonly value="••••••••••" class="w-full border p-1.5 rounded text-[11px]" />
             </div>
-            <button id="s5-dispatchBtn" class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl flex items-center gap-2 text-base">
-              <i data-lucide="send" class="w-4 h-4"></i><span>Send Masked Phishing Mail</span>
+            <button class="mt-3 w-full py-1.5 bg-blue-600 text-white font-bold rounded">/login/office365</button>
+          </div>
+
+          <!-- 2. Google Workspace -->
+          <div class="bg-white text-slate-900 rounded-xl p-4 shadow-xl border-t-4 border-red-500 flex flex-col justify-between">
+            <div class="space-y-2 text-center">
+              <div class="font-bold text-blue-600 text-sm">Google</div>
+              <p class="font-semibold text-slate-800">Workspace Sign in</p>
+              <input type="text" readonly value="alice.johnson@internal.sec" class="w-full border p-1.5 rounded text-[11px]" />
+              <input type="password" readonly value="••••••••••" class="w-full border p-1.5 rounded text-[11px]" />
+            </div>
+            <button class="mt-3 w-full py-1.5 bg-blue-600 text-white font-bold rounded-full">/login/gmail</button>
+          </div>
+
+          <!-- 3. Axis Bank -->
+          <div class="bg-white text-slate-900 rounded-xl p-4 shadow-xl border-t-4 border-[#97144d] flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="font-extrabold text-[#97144d] text-sm">AXIS BANK</div>
+              <p class="font-semibold text-slate-700">NetBanking KYC Sync</p>
+              <input type="text" readonly value="Cust ID: 88492011" class="w-full border p-1.5 rounded text-[11px]" />
+              <input type="password" readonly value="MPIN: ••••••" class="w-full border p-1.5 rounded text-[11px]" />
+            </div>
+            <button id="s7-axisBtn" class="mt-3 w-full py-1.5 bg-[#97144d] text-white font-bold rounded">/login/axisbank</button>
+          </div>
+
+          <!-- 4. Jio 5G SIM -->
+          <div class="bg-white text-slate-900 rounded-xl p-4 shadow-xl border-t-4 border-indigo-700 flex flex-col justify-between">
+            <div class="space-y-2 text-center">
+              <div class="w-8 h-8 rounded-full bg-indigo-700 text-white font-black flex items-center justify-center mx-auto">Jio</div>
+              <p class="font-bold text-slate-800">5G SIM e-KYC Alert</p>
+              <input type="text" readonly value="+91 98201XXXXX" class="w-full border p-1.5 rounded text-[11px]" />
+              <input type="password" readonly value="SIM PIN: ••••" class="w-full border p-1.5 rounded text-[11px]" />
+            </div>
+            <button class="mt-3 w-full py-1.5 bg-indigo-700 text-white font-bold rounded-full">/login/jio</button>
+          </div>
+
+          <!-- 5. MrBreast -->
+          <div class="bg-slate-900 text-white rounded-xl p-4 shadow-xl border-2 border-cyan-400 flex flex-col justify-between">
+            <div class="space-y-2 text-center">
+              <div class="bg-gradient-to-r from-cyan-400 to-pink-500 text-white font-black px-2 py-0.5 rounded text-[10px]">⚡ MRBREAST $50K ⚡</div>
+              <p class="font-bold text-xs">Creator Video Invite</p>
+              <input type="text" readonly value="creator@gmail.com" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-[11px]" />
+              <input type="password" readonly value="••••••••••" class="w-full bg-slate-800 border border-slate-700 p-1.5 rounded text-[11px]" />
+            </div>
+            <button class="mt-3 w-full py-1.5 bg-gradient-to-r from-cyan-500 to-pink-500 text-white font-black rounded">/login/mrbreast</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SLIDE 8: ZERO-CREDENTIAL STORAGE & 100% CRITICAL DISCLOSURE + PDF JOKE -->
+    <main id="slide-8" class="hidden flex-1 flex items-center justify-center p-6 pb-44">
+      <div class="grid grid-cols-2 gap-6 max-w-5xl w-full items-center">
+        <!-- Disclosure Alert -->
+        <div class="bg-slate-900 border-2 border-rose-500 rounded-2xl p-7 text-center space-y-4 shadow-2xl">
+          <span class="px-4 py-1 bg-rose-500/20 text-rose-300 border border-rose-500/40 rounded-full text-xs font-extrabold">
+            CRITICAL RISK EVENT — 100% COMPROMISE
+          </span>
+          <h2 class="text-2xl font-extrabold text-rose-500">Caught Lacking! This Was a Phishing Drill</h2>
+          <p class="text-sm text-slate-300">
+            Your interaction with the simulated portal was intercepted by <strong>SME_Phishing_Simulator</strong>.
+          </p>
+          <div class="p-3 bg-rose-950/60 border border-rose-600 rounded-xl text-xs font-bold text-rose-200">
+            Your Profile Risk Score is now: CRITICAL VERY HIGH (100% Risk)
+          </div>
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 font-semibold">
+            🔒 Zero-Credential Storage: <code>delete req.body.password</code> expunged your plaintext input from RAM immediately.
+          </div>
+        </div>
+
+        <!-- Times New Roman PDF Preview Card -->
+        <div class="bg-white text-slate-900 rounded-2xl p-7 shadow-2xl space-y-3 border-t-8 border-slate-900" style="font-family: 'Times New Roman', Times, serif;">
+          <div class="border-b-2 border-slate-900 pb-2">
+            <h3 class="text-xl font-bold">CAMPAIGN AUDIT &amp; SECURITY REPORT</h3>
+            <p class="text-xs italic text-slate-600">Font: Times New Roman | Generated by PDFKit</p>
+          </div>
+          <p class="text-sm font-bold">4. Employee Email Reaction &amp; Behavioral Risk Audit</p>
+          <table class="w-full text-left text-xs border border-slate-300">
+            <thead class="bg-slate-200 font-bold">
+              <tr><th class="p-1.5">EMPLOYEE</th><th class="p-1.5">OPENED?</th><th class="p-1.5">CLICKED?</th><th class="p-1.5">RISK TIER</th></tr>
+            </thead>
+            <tbody>
+              <tr class="bg-red-50 text-red-900 font-bold"><td class="p-1.5">Alice Johnson</td><td class="p-1.5">Yes</td><td class="p-1.5">Yes</td><td class="p-1.5">[CRITICAL 100% RISK]</td></tr>
+              <tr><td class="p-1.5">Charlie Brown</td><td class="p-1.5">Yes</td><td class="p-1.5">Yes</td><td class="p-1.5 text-amber-700">[HIGH 40% RISK]</td></tr>
+              <tr><td class="p-1.5">Bob Smith</td><td class="p-1.5">Yes</td><td class="p-1.5">No</td><td class="p-1.5 text-emerald-700">[LOW 15% RISK]</td></tr>
+              <tr><td class="p-1.5">Diana Prince</td><td class="p-1.5">No</td><td class="p-1.5">No</td><td class="p-1.5 text-sky-700">[PERFECT 0% RISK]</td></tr>
+            </tbody>
+          </table>
+          <div id="s8-jokeBox" class="p-3 bg-amber-50 border border-amber-500 rounded text-xs">
+            <p class="font-bold text-amber-900">POST-SIMULATION INTELLIGENCE NOTE:</p>
+            <p class="italic text-amber-950 mt-0.5">"SECURITY AUDIT DEBRIEF: Employee Alice Johnson was caught codemaxxing in 4K and handed over credentials."</p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- SLIDE 10: ISOLATED EMPLOYEE PORTAL & 7-MCQ RISK RECALIBRATION -->
+    <main id="slide-10" class="hidden flex-1 flex flex-col p-7 max-w-5xl mx-auto w-full space-y-5 pb-44 overflow-y-auto">
+      <header class="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+          <div class="p-3 bg-emerald-600/20 border border-emerald-500/30 rounded-xl text-emerald-400">
+            <i data-lucide="user-check" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <span class="text-xs font-bold uppercase text-emerald-400">SME_Phishing_Simulator — Isolated Employee Portal</span>
+            <h1 class="text-xl font-bold text-white">Alice Johnson (alice.johnson@internal.sec)</h1>
+          </div>
+        </div>
+        <span id="s10-riskPill" class="px-4 py-1.5 rounded-full text-xs font-extrabold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+          Recalibrated: High (40% Risk) ↓ from 100%
+        </span>
+      </header>
+
+      <div class="grid grid-cols-2 gap-5 text-sm">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h3 class="font-bold text-white">Assigned 7-MCQ Awareness Quizzes</h3>
+          <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <p class="font-bold text-white">Quiz 2: URL Inspection &amp; Masked Sender Aliases</p>
+              <p class="text-xs text-slate-400 mt-0.5">7 MCQ Questions | Pass Threshold: 70%</p>
+            </div>
+            <button id="s10-submitQuizBtn" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">
+              Pass Quiz (Score: 100%)
             </button>
           </div>
-
-          <div class="grid grid-cols-2 gap-6">
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <span class="text-base font-bold text-blue-400 flex items-center gap-2"><i data-lucide="mail" class="w-5 h-5"></i> Sender Mask & Alias Configuration</span>
-              <div class="space-y-3">
-                <div>
-                  <label class="block text-slate-400 mb-1">Display Name Mask</label>
-                  <input type="text" readonly value="Microsoft 365 Security Alert" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white" />
-                </div>
-                <div>
-                  <label class="block text-slate-400 mb-1">Gmail +Alias Tag</label>
-                  <input type="text" readonly value="omjalela4+ms365-security@gmail.com" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-emerald-400 font-mono" />
-                </div>
-              </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-              <span class="text-base font-bold text-white flex items-center gap-2"><i data-lucide="sparkles" class="w-5 h-5 text-blue-400"></i> Gemini AI Lure Preview</span>
-              <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2 text-sm">
-                <p class="text-slate-300"><strong>From:</strong> "Microsoft 365 Security Alert" &lt;omjalela4+ms365-security@gmail.com&gt;</p>
-                <p class="text-slate-300"><strong>Subject:</strong> URGENT: Password Expiry for {{name}}</p>
-                <p class="text-blue-400 underline pt-2">Click here to verify credentials on Office 365 Portal</p>
-              </div>
-            </div>
-          </div>
+          <p class="text-xs text-slate-400">
+            Passing a quiz automatically steps down the employee's risk score in MySQL:
+            <code class="text-emerald-400">100% CRITICAL → 40% High → 15% Low → 0% Perfect</code>.
+          </p>
         </div>
 
-        <!-- SUBVIEW: TRAINING & AI RISK -->
-        <div id="subview-training" class="hidden space-y-5 text-sm">
-          <h2 class="text-2xl font-bold text-white">Awareness Quiz Builder & AI Risk Assessment</h2>
-          <div class="grid grid-cols-2 gap-6">
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
-              <span class="text-base font-bold text-blue-400">+ Create New Awareness Quiz</span>
-              <input type="text" readonly value="Module: Identifying Masked Sender Aliases" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-3 text-white" />
-              <button id="s7-addQuizBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold">Save Quiz & Questions</button>
-            </div>
-            <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-3">
-              <span class="text-base font-bold text-rose-400">Gemini AI Risk Analysis (/api/ai/risk-analysis)</span>
-              <p class="text-slate-300 leading-relaxed">High-Risk Offenders: <strong>Alice Johnson (Finance)</strong> submitted credentials. Auto-assigned remedial quiz.</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- SCENE 6: TARGET INTERCEPTION -->
-    <section id="scene-6" class="hidden flex-1 flex items-center justify-center p-6 bg-slate-900/60">
-      <div class="grid grid-cols-2 gap-8 max-w-5xl w-full items-center">
-        <div class="bg-white text-slate-900 p-8 rounded-2xl shadow-2xl space-y-4 text-sm">
-          <div class="font-bold text-xl text-blue-700">Microsoft 365</div>
-          <p class="text-slate-600">Enter credentials for <strong>alice.johnson@internal.sec</strong></p>
-          <input type="password" readonly value="SuperSecretCorpPass!" class="w-full border border-slate-300 p-3 rounded-lg" />
-          <button id="s6-submitTrap" class="w-full py-3 bg-blue-600 text-white font-bold rounded-lg text-base">Sign In</button>
-        </div>
-        <div class="bg-slate-900 border-2 border-amber-500 p-7 rounded-2xl space-y-3 text-sm">
-          <span class="px-3 py-1 bg-amber-500/20 text-amber-400 font-bold rounded-full text-xs">SME_PHISHING_SIMULATOR ALERT</span>
-          <h3 class="text-xl font-bold text-white">This Was a Phishing Simulation!</h3>
-          <p class="text-slate-300">Your plaintext password was immediately expunged from memory and never stored. Your Risk Level is now <strong>High</strong>.</p>
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h3 class="font-bold text-white">My Personal Assessment History</h3>
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950 text-slate-400 border-b border-slate-800">
+              <tr><th class="p-2.5">Quiz Title</th><th class="p-2.5">Score</th><th class="p-2.5">Status</th></tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800">
+              <tr><td class="p-2.5 text-white font-semibold">Quiz 2: URL &amp; Masked Sender Aliases</td><td class="p-2.5 font-bold">100% (7/7)</td><td class="p-2.5 text-emerald-400 font-bold">Passed</td></tr>
+              <tr><td class="p-2.5 text-white font-semibold">Quiz 1: Phishing Red Flags Drill</td><td class="p-2.5 font-bold">86% (6/7)</td><td class="p-2.5 text-emerald-400 font-bold">Passed</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
-    </section>
+    </main>
 
-    <!-- SCENE 8: EMPLOYEE PORTAL (SEES ONLY OWN DATA) -->
-    <section id="scene-8" class="hidden flex-1 flex flex-col p-8 max-w-4xl mx-auto w-full space-y-6 text-sm">
-      <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl flex items-center justify-between">
-        <div>
-          <span class="text-xs uppercase tracking-wider text-emerald-400 font-bold">SME_Phishing_Simulator — Employee Personal Portal</span>
-          <h2 class="text-xl font-bold text-white mt-1">Alice Johnson (alice.johnson@internal.sec)</h2>
-          <p class="text-slate-400">Strict Isolation: Viewing only your personal training progress and risk status</p>
+    <!-- =================================================================== -->
+    <!-- DOCKED PPT PRESENTER TELEPROMPTER OVERLAY (SPEAKER NOTES)           -->
+    <!-- =================================================================== -->
+    <aside id="pptNotesOverlay" class="fixed bottom-3 left-6 right-6 z-40 bg-slate-900/95 backdrop-blur-md border-2 border-blue-500/40 rounded-2xl p-4 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <div class="space-y-1.5 flex-1">
+        <div class="flex items-center space-x-2.5">
+          <span class="px-2.5 py-0.5 bg-blue-600 text-white rounded text-xs font-extrabold uppercase tracking-wider">PPT Presenter Guide</span>
+          <h4 id="pptTitle" class="text-base font-extrabold text-white">Slide 1: Multi-Tier Authentication & OAuth 2.0</h4>
         </div>
-        <span id="s8-riskBadge" class="px-4 py-1.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-base">Low Risk (Recalibrated)</span>
+        <ul id="pptBullets" class="list-disc pl-5 text-xs text-slate-200 space-y-1 leading-relaxed"></ul>
       </div>
-
-      <div class="bg-slate-900 border border-slate-800 p-6 rounded-2xl space-y-4">
-        <h3 class="font-bold text-lg text-white">Assigned Quiz: Phishing Red Flags Assessment</h3>
-        <button id="s8-submitQuizBtn" class="px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl text-base">Submit Completed Quiz (Score: 90%)</button>
+      <div class="w-full md:w-72 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs space-y-1 shrink-0">
+        <div class="text-slate-400 font-bold uppercase text-[10px]">Active Backend Routes &amp; Tables</div>
+        <div id="pptTechMeta" class="font-mono text-emerald-400 text-[11px] leading-snug"></div>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden mt-2">
+          <div id="slideProgressBar" class="bg-blue-500 h-full transition-all duration-300" style="width: 9%"></div>
+        </div>
       </div>
-    </section>
+    </aside>
 
   </div>
 
-  <!-- FOOTER CONTROLS -->
-  <footer class="bg-slate-900 border-t border-slate-800 px-6 py-3.5 space-y-2 z-30">
-    <div class="text-center">
-      <p id="captionText" class="inline-block bg-slate-950 border border-slate-800 px-5 py-1.5 rounded-full text-sm text-slate-200 font-medium">
-        Initializing SME_Phishing_Simulator walkthrough...
-      </p>
-    </div>
-    <div class="flex items-center space-x-4">
-      <button id="playPauseBtn" class="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold">Pause</button>
-      <button id="prevSceneBtn" class="p-2 bg-slate-800 rounded text-slate-300"><i data-lucide="skip-back" class="w-4 h-4"></i></button>
-      <button id="nextSceneBtn" class="p-2 bg-slate-800 rounded text-slate-300"><i data-lucide="skip-forward" class="w-4 h-4"></i></button>
-      <div class="flex-1 bg-slate-800 h-2.5 rounded-full overflow-hidden">
-        <div id="progressBar" class="bg-blue-500 h-full transition-all duration-300" style="width: 11%"></div>
-      </div>
-    </div>
-  </footer>
-
   <script>
     lucide.createIcons();
-    const demoHeatmap = document.getElementById('demoHeatmap');
-    for (let i = 0; i < 48; i++) {
+
+    // Build 24x7 Heatmap Grid in Analytics Preview
+    const heatmapContainer = document.getElementById('previewHeatmapGrid');
+    for (let i = 0; i < 168; i++) {
       const cell = document.createElement('div');
-      cell.className = `h-4 rounded ${i === 19 || i === 31 ? 'bg-rose-500' : (i % 5 === 0 ? 'bg-blue-600' : 'bg-slate-800')}`;
-      demoHeatmap.appendChild(cell);
+      const isPeak = (i % 24 >= 9 && i % 24 <= 15) && (i < 120);
+      const color = isPeak ? (i % 7 === 0 ? 'bg-rose-500' : 'bg-blue-600') : 'bg-slate-800/90';
+      cell.className = `h-2.5 rounded-sm ${color}`;
+      heatmapContainer.appendChild(cell);
     }
 
-    const SCENES = [
-      { badge: 'Scene 1 / 9: Main Login (OAuth + Admin Option)', caption: 'Main Login: Clean "Sign In" button, Google/GitHub SVG icons, and "Admin SOC Login Portal" button below.', run: (m) => { showSec('scene-0'); m('s0-adminPortalBtn'); } },
-      { badge: 'Scene 2 / 9: Dedicated Admin Login', caption: 'Admin Login Page: Dedicated high-security login portal specifically for SME_Phishing_Simulator Admins.', run: (m) => { showSec('scene-1'); m('s1-adminSignInBtn'); } },
-      { badge: 'Scene 3 / 9: Token Password Reset', caption: 'Password Reset Page: Opened from real Gmail link sent via masked alias (omjalela4+account-recovery@gmail.com).', run: (m) => { showSec('scene-2'); m('s2-resetBtn'); } },
-      { badge: 'Scene 4 / 9: Admin Dashboard (Larger Fonts)', caption: 'Admin Analytics: Larger, readable typography across all KPI cards, Funnel charts, and PDF/CSV export triggers.', run: (m) => { showAdmin('subview-analytics', 'nav-overview'); m('s3-pdfBtn'); } },
-      { badge: 'Scene 5 / 9: Employee Management', caption: 'Employee Management: Add, edit, filter targets, or upload CSV rosters.', run: (m) => { showAdmin('subview-employees', 'nav-employees'); m('s4-csvBtn'); } },
-      { badge: 'Scene 6 / 9: Masked Gmail Phishing Mailer', caption: 'Real-World Mailer: Dispatches phishing emails using custom Display Masks and Gmail +Aliases!', run: (m) => { showAdmin('subview-campaigns', 'nav-campaigns'); m('s5-dispatchBtn'); } },
-      { badge: 'Scene 7 / 9: Target Interception', caption: 'Safe Interception: Victim submits password -> Immediately expunged -> Risk escalated to High.', run: (m) => { showSec('scene-6'); m('s6-submitTrap'); } },
-      { badge: 'Scene 8 / 9: Awareness Quiz Builder & AI Risk', caption: 'Admin Awareness Studio: Admins create new quizzes/questions and run Gemini AI Risk Analysis.', run: (m) => { showAdmin('subview-training', 'nav-training'); m('s7-addQuizBtn'); } },
-      { badge: 'Scene 9 / 9: Isolated Employee Portal', caption: 'Employee Portal: Logged-in user sees ONLY their own risk level, assigned modules, and quiz scores.', run: (m) => { showSec('scene-8'); m('s8-submitQuizBtn'); } }
+    // Render Chart.js Funnel
+    let funnelChart = null;
+    function initFunnelChart(series = [15, 15, 12, 9, 6]) {
+      const ctx = document.getElementById('previewFunnelChart')?.getContext('2d');
+      if (!ctx) return;
+      if (funnelChart) funnelChart.destroy();
+      funnelChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Sent', 'Delivered', 'Opened (15%)', 'Clicked (40%)', 'Compromised (100%)'],
+          datasets: [{
+            data: series,
+            backgroundColor: ['#475569', '#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+            borderRadius: 6,
+            barPercentage: 0.55
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { beginAtZero: true, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 11, weight: 'bold' } } }
+          }
+        }
+      });
+    }
+
+    // Optional Live Database Hydration if Admin JWT exists in localStorage
+    (async function tryLiveHydration() {
+      const token = localStorage.getItem('token');
+      const badge = document.getElementById('dataSourceBadge');
+      if (!token) {
+        badge.textContent = 'Seeded Production Dataset Active';
+        return;
+      }
+      try {
+        const headers = { 'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}` };
+        const [empRes, campRes] = await Promise.all([
+          fetch('/api/employees?page=1&limit=5', { headers }),
+          fetch('/api/campaigns', { headers })
+        ]);
+        if (empRes.ok && campRes.ok) {
+          const empData = await empRes.json();
+          const campData = await campRes.json();
+          const totalEmps = empData.pagination?.totalRecords || empData.employees?.length || 25;
+          document.getElementById('p-totalTargets').textContent = totalEmps;
+          badge.textContent = `Live MySQL Connected (${totalEmps} Targets, ${campData.campaigns?.length || 5} Campaigns)`;
+        } else {
+          badge.textContent = 'Seeded Production Dataset Active';
+        }
+      } catch (e) {
+        badge.textContent = 'Seeded Production Dataset Active';
+      }
+    })();
+
+    // 11 PPT Presentation Slides Definition
+    const SLIDES = [
+      {
+        title: 'Slide 1: Unified Employee Login, OAuth 2.0 & Password Recovery',
+        bullets: [
+          'Employees sign in with their corporate email (e.g., alice.johnson@internal.sec) and default password (Employee123!).',
+          'Includes official Google and GitHub OAuth 2.0 SSO buttons alongside a collapsible Forgot Password drawer.',
+          'Dedicated "Admin SOC Login Portal" button below OAuth separates administrative command access from standard users.'
+        ],
+        tech: 'POST /api/auth/login\nGET /api/auth/google | /github\nTables: Users, Employees',
+        run: (m) => { showSlideView('slide-0'); m('s0-adminPortalBtn'); }
+      },
+      {
+        title: 'Slide 2: Dedicated Admin SOC Command Authentication',
+        bullets: [
+          'Strictly authenticates against the Users table with bcrypt password hash verification and loginType: "admin".',
+          'Issues an 8-hour Passport-JWT bearer token and records an immutable ADMIN_LOGIN entry in AuditLogs.'
+        ],
+        tech: 'POST /api/auth/login (loginType: admin)\nTable: Users, AuditLogs',
+        run: (m) => { showSlideView('slide-1'); m('s1-adminSignInBtn'); }
+      },
+      {
+        title: 'Slide 3: Real-World Gmail Password Reset via Masked Alias',
+        bullets: [
+          'Generates a 32-byte hex token, stores only its SHA-256 hash in MySQL with a 1-hour expiry, and emails the link via Gmail SMTP.',
+          'Uses dynamic sender masking: "SME_Phishing_Simulator Identity Guard <spotifykaemailaddress+account-recovery@gmail.com>".'
+        ],
+        tech: 'POST /api/auth/forgot-password\nPOST /api/auth/reset-password\nUtility: utils/mailer.js',
+        run: (m) => { showSlideView('slide-2'); m('s2-updatePassBtn'); }
+      },
+      {
+        title: 'Slide 4: OAuth Privilege Guard & Employee Department Onboarding',
+        bullets: [
+          'Prevents unauthorized users from gaining Admin access via Google/GitHub OAuth.',
+          'Unrecognized OAuth logins are automatically created as Pending Employees, prompted to select their Department, and placed in the Admin approval queue.'
+        ],
+        tech: 'POST /api/auth/oauth-onboarding\nColumn: Employees.approval_status = "Pending"',
+        run: (m) => { showSlideView('slide-3'); m('s3-submitOAuthBtn'); }
+      },
+      {
+        title: 'Slide 5: Admin Page 1 — Telemetry, Funnel, 24x7 Heatmap & AI Risk',
+        bullets: [
+          'Displays live campaign KPIs, Chart.js Conversion Funnel (Sent → Delivered → Opened → Clicked → Compromised), and the 168-cell (7×24) Temporal Heatmap.',
+          'Includes Gemini 3.8 Flash Risk Analysis (/api/ai/risk-analysis) and one-click CSV & Times New Roman PDF exports.'
+        ],
+        tech: 'GET /api/reports/campaign/:id\nGET /api/analytics/heatmap\nGET /api/ai/risk-analysis',
+        run: (m) => { showAdminSub('sub-analytics', 'nav-analytics'); initFunnelChart(); m('s4-pdfBtn'); }
+      },
+      {
+        title: 'Slide 6: Admin Page 2 — OAuth Approvals & 4-Tier Behavioral Risk Scoring',
+        bullets: [
+          'Admins can Approve or Ignore pending OAuth employee sign-ups at the top of Employee Management.',
+          'Implements the 4-Tier Behavioral Risk Engine: Unopened = Perfect (0% Risk), Opened Only = Low (15% Risk), Clicked Link = High (40% Risk), Submitted Credentials = CRITICAL VERY HIGH (100% Risk).'
+        ],
+        tech: 'GET /api/employees/pending\nPUT /api/employees/:id/approve\nUtility: utils/riskEngine.js',
+        run: (m) => { showAdminSub('sub-employees', 'nav-employees'); m('s5-approveBtn'); }
+      },
+      {
+        title: 'Slide 7: Admin Page 3 — Masked Gmail Phishing Mailer & Gemini 3.8 Lure Studio',
+        bullets: [
+          'Gemini 3.8 Flash generates realistic HTML phishing lures with {{name}} and {{tracking_link}} and auto-saves them to EmailTemplates.',
+          'Dispatches real phishing emails through Gmail SMTP using customizable display masks and +aliases, embedding the 1x1 open-tracking pixel.'
+        ],
+        tech: 'POST /api/ai/generate-email\nPOST /api/campaigns/:id/send\nService: services/emailService.js',
+        run: (m) => { showAdminSub('sub-campaigns', 'nav-campaigns'); m('s6-sendBtn'); }
+      },
+      {
+        title: 'Slide 8: 5 Realistic Cloned Interception Portals',
+        bullets: [
+          'Clicking a phishing link (/api/track/click/:token) logs "Opened" + "Clicked", escalates risk to High (40% Risk), and redirects to the campaign’s assigned clone.',
+          'Includes 5 authentic clones: Microsoft Office 365, Google Workspace, Axis Bank NetBanking, Jio 5G SIM e-KYC, and MrBreast $50,000 YouTube Collab Invite.'
+        ],
+        tech: 'GET /api/track/click/:token\nRoutes: /login/office365, /gmail, /axisbank, /jio, /mrbreast',
+        run: (m) => { showSlideView('slide-7'); m('s7-axisBtn'); }
+      },
+      {
+        title: 'Slide 9: Zero-Credential Storage, 100% Critical Risk & Times New Roman PDF',
+        bullets: [
+          'Submitting data on any clone immediately purges passwords/PINs from memory (delete req.body.password), logs "Submitted", and escalates the user to CRITICAL VERY HIGH (100% Risk).',
+          'The Times New Roman PDF report logs every employee’s Opened, Clicked, and Compromised status and ends with the "caught lacking / codemaxxing" audit debrief note.'
+        ],
+        tech: 'POST /login/:slug\nGET /api/reports/campaign/:id/pdf\nController: reportController.js',
+        run: (m) => { showSlideView('slide-8'); m('s8-jokeBox'); }
+      },
+      {
+        title: 'Slide 10: Admin Page 4 — Quiz Assignment Emailer & Multi-MCQ Studio',
+        bullets: [
+          'Seeded with 5 comprehensive Training Modules and 5 Quizzes containing 7 MCQs each (35 questions total).',
+          'Admins can build multi-question quizzes dynamically and assign quizzes to specific employees, departments, or all High/Critical-Risk staff—automatically dispatching a real Gmail notification!'
+        ],
+        tech: 'POST /api/quizzes/assign\nPOST /api/quizzes/create\nTables: TrainingModules, Quizzes, QuizQuestions',
+        run: (m) => { showAdminSub('sub-awareness', 'nav-awareness'); m('s9-assignBtn'); }
+      },
+      {
+        title: 'Slide 11: Isolated Employee Portal — 7-MCQ Assessment & Risk Step-Down',
+        bullets: [
+          'Strictly isolated to the logged-in employee (live-synced by email & ID so it matches the Admin dashboard 100%).',
+          'Completing and passing a 7-MCQ quiz (≥70%) records the score in QuizResults and steps down their behavioral risk score (100% Critical → 40% High → 15% Low → 0% Perfect).'
+        ],
+        tech: 'GET /api/quizzes/employee/:id\nPOST /api/quizzes/:id/submit\nTable: QuizResults, Employees',
+        run: (m) => { showSlideView('slide-10'); m('s10-submitQuizBtn'); }
+      }
     ];
 
-    let cur = 0, playing = true, timer = null;
-    function showSec(id) {
-      ['scene-0','scene-1','scene-2','adminShell','scene-6','scene-8'].forEach(s => document.getElementById(s).classList.add('hidden'));
-      document.getElementById(id).classList.remove('hidden');
+    let curSlide = 0;
+    let isPlaying = true;
+    let notesVisible = true;
+
+    function showSlideView(id) {
+      ['slide-0', 'slide-1', 'slide-2', 'slide-3', 'adminShell', 'slide-7', 'slide-8', 'slide-10'].forEach(s => {
+        document.getElementById(s)?.classList.add('hidden');
+      });
+      document.getElementById(id)?.classList.remove('hidden');
     }
-    function showAdmin(sub, nav) {
-      showSec('adminShell');
-      ['subview-analytics','subview-employees','subview-campaigns','subview-training'].forEach(s => document.getElementById(s).classList.add('hidden'));
-      ['nav-overview','nav-employees','nav-campaigns','nav-training'].forEach(n => document.getElementById(n).className = 'px-3.5 py-2.5 rounded-xl text-slate-300 flex items-center gap-3');
-      document.getElementById(sub).classList.remove('hidden');
-      document.getElementById(nav).className = 'px-3.5 py-2.5 rounded-xl bg-blue-600/15 text-blue-400 font-semibold flex items-center gap-3';
+
+    function showAdminSub(subId, navId) {
+      showSlideView('adminShell');
+      ['sub-analytics', 'sub-employees', 'sub-campaigns', 'sub-awareness'].forEach(s => {
+        document.getElementById(s)?.classList.add('hidden');
+      });
+      ['nav-analytics', 'nav-employees', 'nav-campaigns', 'nav-awareness'].forEach(n => {
+        const el = document.getElementById(n);
+        if (el) el.className = 'w-full px-4 py-3 rounded-xl text-slate-300 font-medium flex items-center justify-between';
+      });
+      document.getElementById(subId)?.classList.remove('hidden');
+      const activeNav = document.getElementById(navId);
+      if (activeNav) activeNav.className = 'w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-between';
     }
-    function moveCursor(id) {
-      const el = document.getElementById(id), c = document.getElementById('virtualCursor'), d = document.getElementById('cursorDot');
-      if (!el) return;
+
+    function moveVirtualCursor(targetId) {
+      const el = document.getElementById(targetId);
+      const cursor = document.getElementById('virtualCursor');
+      const dot = document.getElementById('cursorDot');
+      if (!el || !cursor) return;
       setTimeout(() => {
-        const r = el.getBoundingClientRect();
-        c.style.top = `${r.top + r.height/2}px`; c.style.left = `${r.left + r.width/2}px`;
-        setTimeout(() => { d.classList.add('cursor-click'); setTimeout(() => d.classList.remove('cursor-click'), 600); }, 750);
-      }, 300);
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0) {
+          cursor.style.top = `${rect.top + rect.height / 2}px`;
+          cursor.style.left = `${rect.left + rect.width / 2}px`;
+          setTimeout(() => {
+            dot.classList.add('cursor-click');
+            setTimeout(() => dot.classList.remove('cursor-click'), 650);
+          }, 750);
+        }
+      }, 250);
     }
-    function render(idx) {
-      cur = (idx + SCENES.length) % SCENES.length;
-      document.getElementById('sceneBadge').textContent = SCENES[cur].badge;
-      document.getElementById('captionText').textContent = SCENES[cur].caption;
-      document.getElementById('sceneSelector').value = String(cur);
-      document.getElementById('progressBar').style.width = `${((cur + 1) / SCENES.length) * 100}%`;
-      SCENES[cur].run(moveCursor);
+
+    function renderSlide(index) {
+      curSlide = (index + SLIDES.length) % SLIDES.length;
+      const s = SLIDES[curSlide];
+
+      document.getElementById('slideBadge').textContent = `Slide ${curSlide + 1} / ${SLIDES.length}`;
+      document.getElementById('slideSelector').value = String(curSlide);
+      document.getElementById('pptTitle').textContent = s.title;
+      document.getElementById('pptBullets').innerHTML = s.bullets.map(b => `<li>${b}</li>`).join('');
+      document.getElementById('pptTechMeta').innerHTML = s.tech.replace(/\n/g, '<br/>');
+      document.getElementById('slideProgressBar').style.width = `${((curSlide + 1) / SLIDES.length) * 100}%`;
+
+      s.run(moveVirtualCursor);
     }
-    timer = setInterval(() => { if (playing) render(cur + 1); }, 4200);
-    document.getElementById('playPauseBtn').onclick = (e) => { playing = !playing; e.target.textContent = playing ? 'Pause' : 'Play'; };
-    document.getElementById('prevSceneBtn').onclick = () => render(cur - 1);
-    document.getElementById('nextSceneBtn').onclick = () => render(cur + 1);
-    document.getElementById('sceneSelector').onchange = (e) => render(parseInt(e.target.value, 10));
-    render(0);
+
+    function togglePlayPause() {
+      isPlaying = !isPlaying;
+      const btn = document.getElementById('playPauseBtn');
+      const label = document.getElementById('playPauseLabel');
+      if (isPlaying) {
+        btn.className = 'px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg font-extrabold flex items-center gap-1.5 shadow transition';
+        label.textContent = 'PAUSE TO EXPLAIN (Space)';
+      } else {
+        btn.className = 'px-4 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg font-extrabold flex items-center gap-1.5 shadow transition animate-pulse';
+        label.textContent = 'PAUSED — CLICK TO RESUME (Space)';
+      }
+    }
+
+    function toggleNotes() {
+      notesVisible = !notesVisible;
+      document.getElementById('pptNotesOverlay').classList.toggle('hidden', !notesVisible);
+      document.getElementById('toggleNotesBtn').textContent = notesVisible ? 'PPT Notes: ON' : 'PPT Notes: OFF';
+    }
+
+    // Controls & Keyboard Shortcuts (Space, Left/Right Arrows, N)
+    document.getElementById('playPauseBtn').onclick = togglePlayPause;
+    document.getElementById('prevSlideBtn').onclick = () => { if (isPlaying) togglePlayPause(); renderSlide(curSlide - 1); };
+    document.getElementById('nextSlideBtn').onclick = () => { if (isPlaying) togglePlayPause(); renderSlide(curSlide + 1); };
+    document.getElementById('slideSelector').onchange = (e) => { if (isPlaying) togglePlayPause(); renderSlide(parseInt(e.target.value, 10)); };
+    document.getElementById('toggleNotesBtn').onclick = toggleNotes;
+
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlayPause();
+      } else if (e.code === 'ArrowRight') {
+        if (isPlaying) togglePlayPause();
+        renderSlide(curSlide + 1);
+      } else if (e.code === 'ArrowLeft') {
+        if (isPlaying) togglePlayPause();
+        renderSlide(curSlide - 1);
+      } else if (e.key === 'n' || e.key === 'N') {
+        toggleNotes();
+      }
+    });
+
+    setInterval(() => {
+      if (isPlaying) renderSlide(curSlide + 1);
+    }, 5500);
+
+    renderSlide(0);
   </script>
 </body>
 </html>
