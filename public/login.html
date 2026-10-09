@@ -1,94 +1,113 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sign In — SME Phishing Simulation & Awareness Portal</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    body { font-family: 'Inter', sans-serif; }
-  </style>
-</head>
-<body data-page="login" class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-center items-center p-4">
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign In — CogniPhish</title>
+<script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- Security Isolation Notice Banner (Shown if Admin clicked Employee Email Link) -->
-  <div id="isolation-banner" class="hidden max-w-md w-full mb-4 bg-amber-500/10 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-xl text-sm"></div>
 
-  <div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8">
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-600/30">🛡️</div>
-        <div>
-          <h1 class="text-xl font-bold text-white">Security Awareness Hub</h1>
-          <p class="text-xs text-slate-400">Employee Training & Simulation Portal</p>
-        </div>
-      </div>
-      <span class="text-[11px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-full font-medium">Employee Portal</span>
-    </div>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=DM+Sans:wght@400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/><script>tailwind.config={darkMode:'class',theme:{extend:{colors:{slate:{950:'var(--bg-0)',900:'var(--bg-1)',800:'var(--bg-2)',700:'var(--line)',600:'var(--line)',500:'var(--muted-ink)',400:'var(--muted-ink)',300:'var(--ink)',200:'var(--ink)',100:'var(--ink)'},blue:{900:'var(--navy)',600:'var(--steel)',500:'var(--sky)',400:'var(--sky)',300:'var(--sky)'},emerald:{600:'var(--navy)',500:'var(--safe)',400:'var(--safe)',300:'var(--safe)'},indigo:{600:'var(--steel)',500:'var(--steel)',400:'var(--sky)'},rose:{600:'var(--critical)',500:'var(--critical)',400:'var(--critical)',300:'var(--critical)'},red:{500:'var(--critical)',400:'var(--critical)'},amber:{500:'var(--amber)',400:'var(--amber)',300:'var(--amber)'},ink:'var(--ink)'},gridTemplateColumns:{24:'repeat(24,minmax(0,1fr))'},fontFamily:{sans:['Inter','sans-serif'],mono:['JetBrains Mono','monospace']}}}};</script><style>:root{--bg-0:oklch(.15 .026 242);--bg-1:oklch(.205 .045 247);--bg-2:oklch(.26 .05 244);--navy:oklch(.39 .078 244);--steel:oklch(.56 .09 240);--sky:oklch(.7 .103 236);--safe:oklch(.77 .15 143);--amber:oklch(.8 .16 80);--high:oklch(.71 .18 49);--critical:oklch(.64 .23 25);--ink:oklch(.96 .008 235);--muted-ink:oklch(.73 .034 238);--glass:oklch(1 0 0/.04);--line:oklch(.72 .08 237/.18);--glow:oklch(.7 .1 236/.45);--ease:cubic-bezier(.22,1,.36,1);--primary-gradient:linear-gradient(115deg,var(--navy),var(--steel));--glass-shadow:inset 0 1px 0 oklch(1 0 0/.06),0 14px 40px oklch(.1 .04 240/.26)}
+*{box-sizing:border-box}html{color-scheme:dark}body{margin:0;background:radial-gradient(ellipse at 0 0,oklch(.28 .065 235),transparent 65%),var(--bg-0)!important;color:var(--ink);font-family:'Inter',sans-serif;font-size:13px;overflow-x:hidden;min-height:100vh;letter-spacing:0}body:before{content:'';position:fixed;inset:0;pointer-events:none;z-index:50;opacity:.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='white' filter='url(%23n)' d='M0 0h180v180H0z'/%3E%3C/svg%3E")}h1,h2,h3,p{letter-spacing:0}button,a,input,select,textarea{transition:background .2s,border-color .2s,box-shadow .2s,transform .2s var(--ease)}button,a{cursor:pointer}button:active{transform:scale(.97)}:focus-visible{outline:2px solid var(--sky)!important;outline-offset:4px}input,select,textarea{background:var(--bg-0)!important;color:var(--ink)!important;border:1px solid var(--line)!important;border-radius:8px!important;min-height:40px;font-family:inherit}input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px color-mix(in oklab,var(--sky) 16%,transparent);border-color:var(--sky)!important}input::placeholder,textarea::placeholder{color:var(--muted-ink);opacity:.65}label,thead{color:var(--muted-ink);font-size:10px;text-transform:uppercase}button{position:relative;overflow:hidden;min-height:36px}button.cp-primary{background:var(--primary-gradient)!important;color:var(--ink)!important;border:1px solid var(--steel);border-radius:7px!important;box-shadow:inset 0 1px 0 color-mix(in oklab,var(--ink) 12%,transparent)}button.cp-primary:after{content:'';position:absolute;inset:-60% -40%;transform:translateX(-120%) rotate(20deg);background:linear-gradient(90deg,transparent,color-mix(in oklab,var(--ink) 12%,transparent),transparent);transition:transform .65s var(--ease);pointer-events:none}button.cp-primary:hover:after{transform:translateX(120%) rotate(20deg)}.cp-glass{background:var(--glass)!important;border:1px solid var(--line)!important;backdrop-filter:blur(24px);border-radius:16px!important;box-shadow:var(--glass-shadow)}header{background:color-mix(in oklab,var(--bg-0) 87%,transparent)!important;border-color:var(--line)!important;backdrop-filter:blur(24px);padding:20px 36px!important;align-items:center!important}header>div:first-child{min-width:230px}header h1{font-family:'DM Sans',sans-serif;font-size:25px!important;font-weight:500!important}header>div:first-child>div:first-child{background:transparent!important;width:40px;height:40px;box-shadow:none!important}header nav{order:3;width:100%;justify-content:flex-start;background:transparent!important;border:0!important;border-top:1px solid var(--line)!important;border-radius:0!important;margin-top:14px;padding:14px 0 0!important;gap:12px!important;position:relative}header nav .admin-tab-btn{background:transparent!important;color:var(--muted-ink)!important;border-radius:5px!important;padding:11px 16px!important;font-size:12px!important;white-space:nowrap}header nav .admin-tab-btn[aria-selected=true]{color:var(--ink)!important;background:color-mix(in oklab,var(--sky) 10%,transparent)!important}.cp-tab-line{position:absolute;bottom:-1px;left:0;width:0;height:2px;background:var(--sky);transition:transform .45s var(--ease),width .45s var(--ease);box-shadow:0 0 12px var(--glow);pointer-events:none}main{max-width:1440px!important;padding:24px 36px 48px!important}main h2,main h3{font-family:'DM Sans',sans-serif;font-weight:600!important;font-size:15px!important;text-transform:none!important}.cp-brand svg{width:42px;height:42px;overflow:visible}.cp-hero{position:relative;max-width:1440px;margin:0 auto;padding:35px 36px 20px;overflow:hidden;width:100%;isolation:isolate}.cp-hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.13;z-index:-2}.cp-hero:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,var(--bg-0),transparent);opacity:.65;z-index:-1}.cp-eyebrow{display:inline-flex;align-items:center;gap:10px;background:var(--primary-gradient);border-radius:100px;color:var(--ink);padding:7px 17px;font-size:9px;letter-spacing:.2em;text-transform:uppercase}.cp-hero h2{font-family:'Bebas Neue',sans-serif;font-weight:400;font-size:62px;line-height:1;margin:17px 0 10px;text-transform:uppercase;text-shadow:0 0 24px var(--glow)}.cp-hero p{color:var(--muted-ink);font-size:12px;margin:0}.cp-hero .cp-globe{position:absolute;right:55px;top:16px;width:175px;height:175px;border-radius:50%;background:radial-gradient(circle,var(--sky) 1.5px,transparent 2px);background-size:12px 12px;mask-image:radial-gradient(circle,black 28%,transparent 70%);opacity:.3;transform:rotate(-18deg);animation:cp-globe 60s linear infinite;pointer-events:none}.cp-hero .cp-rule{position:absolute;right:0;bottom:45px;width:180px;height:1px;background:var(--steel)}.cp-kpi{position:relative;min-height:139px;overflow:hidden;transition:transform .25s var(--ease),border-color .25s!important}.cp-kpi:hover{transform:translateY(-4px);border-color:var(--sky)!important}.cp-kpi>span{font-size:10px!important;text-transform:uppercase;letter-spacing:.1em;color:var(--muted-ink)}.cp-kpi [id]:first-child{font-family:'DM Sans',sans-serif;font-size:39px!important;font-weight:500!important}.cp-kpi:after{content:'';position:absolute;right:20px;top:20px;width:24px;height:22px;background:var(--steel);opacity:.45;clip-path:polygon(0 80%,15% 80%,15% 45%,30% 45%,30% 65%,45% 65%,45% 20%,60% 20%,60% 48%,75% 48%,75% 0,90% 0,90% 100%,0 100%)}table{border-collapse:collapse;width:100%}th{font-weight:500;font-size:9px;padding:14px 12px!important;color:var(--muted-ink)!important;white-space:nowrap}td{padding:15px 12px!important;color:var(--ink);border-bottom:1px solid var(--line)}tbody tr{position:relative;transition:background .2s;animation:cp-fade .45s var(--ease) both}tbody tr:hover{background:color-mix(in oklab,var(--sky) 6%,transparent);box-shadow:inset 2px 0 0 var(--sky)}.cp-critical{color:var(--critical)!important;animation:cp-risk 3s ease-in-out infinite}#analyticsCampaignSelect{max-width:410px;font-size:10px;padding:11px;flex:1}#tab-analytics>div:first-child{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0 0 8px!important}#tab-analytics>div:first-child>div:first-child{display:none}#tab-analytics>div:first-child>div:last-child{width:100%}#tab-analytics>div:first-child button:first-of-type{margin-left:auto}#tab-analytics>div.grid{gap:20px!important}#aiRiskAnalysisBox{background:color-mix(in oklab,var(--bg-0) 55%,transparent)!important;border-color:var(--line)!important;border-radius:8px!important;line-height:1.85;color:var(--muted-ink)!important}#runAiRiskAnalysisBtn{white-space:nowrap;flex-shrink:0}#tab-analytics>div:last-child>div:last-child>div:first-child{flex-wrap:wrap;gap:12px}#heatmapGrid [title]{border-radius:3px!important;animation:cp-fade .6s var(--ease) both;transition:transform .15s,box-shadow .15s}#heatmapGrid [title]:hover{transform:scale(1.25);box-shadow:0 0 12px var(--glow);position:relative;z-index:2}#admin-session-id,#emp-session-id{font-family:'JetBrains Mono',monospace;font-size:10px;padding:7px 10px;border-radius:5px;background:var(--bg-1)!important;color:var(--safe)!important;white-space:nowrap}#admin-session-id:before,#emp-session-id:before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--safe);margin-right:7px;box-shadow:0 0 6px var(--safe)}#logout-btn{background:transparent!important;color:var(--muted-ink)!important;border-color:var(--line)!important}#awareness-quote-banner{background:color-mix(in oklab,var(--sky) 8%,transparent)!important;border-color:var(--line)!important}#awareness-quote-text{animation:cp-fade .5s var(--ease);line-height:1.65}#awareness-rotate-btn{background:var(--bg-2)!important;color:var(--sky)!important;border-color:var(--line)!important}#quiz-workspace{min-height:380px}#quiz-workspace label:has(input[type=radio]:checked){background:color-mix(in oklab,var(--sky) 12%,transparent)!important;border-color:var(--sky)!important}#quiz-workspace input[type=radio]{min-height:0;accent-color:var(--sky)}.cp-auth-card{position:relative;width:100%;max-width:445px!important;padding:32px!important;margin:26px 0 40px;animation:cp-fade .7s var(--ease);background:var(--glass)!important}.cp-auth-card>div:first-child{flex-wrap:wrap!important;gap:14px}.cp-auth-card h1{font-family:'Bebas Neue',sans-serif;font-size:32px!important;line-height:1.15}.cp-auth-card>div:first-child>span{font-size:9px!important}.cp-auth-brand{position:absolute;top:30px;left:35px;display:flex;align-items:center;gap:11px}.cp-auth-brand strong{font-size:26px;font-family:'DM Sans',sans-serif;font-weight:500}.cp-auth-brand small{display:block;color:var(--muted-ink);font-size:9px;margin-top:2px;letter-spacing:.12em;text-transform:uppercase}.cp-auth-title{font-family:'Bebas Neue',sans-serif;font-size:64px;line-height:1;margin:0 0 14px;text-shadow:0 0 24px var(--glow);text-align:center}.cp-auth-intro{padding-top:120px;text-align:center}.cp-auth-intro p{color:var(--muted-ink);font-size:12px;margin:0 auto;max-width:330px}.cp-auth-footer{font-family:'JetBrains Mono',monospace;color:var(--muted-ink);font-size:9px;text-align:center;margin-bottom:24px;letter-spacing:.1em}.cp-admin-auth .cp-auth-card{border-color:color-mix(in oklab,var(--amber) 25%,transparent)!important}.cp-admin-auth .cp-eyebrow{background:color-mix(in oklab,var(--amber) 8%,transparent);border:1px solid color-mix(in oklab,var(--amber) 25%,transparent);color:var(--amber)}.cp-admin-auth .cp-auth-card:before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:var(--amber);opacity:.35;animation:cp-scan 8s linear infinite;pointer-events:none}#forgot-form:not(.hidden){position:fixed;right:0;top:0;height:100dvh;width:min(430px,100vw);z-index:101;margin:0!important;padding:70px 28px!important;border:1px solid var(--line)!important;border-radius:0;background:var(--bg-1);box-shadow:-30px 0 80px var(--bg-0);animation:cp-drawer .5s var(--ease)}#forgot-form>p{font-size:14px;line-height:1.8;margin-bottom:24px}#forgot-form:not(.hidden):before{content:'PASSWORD RECOVERY';font-family:'Bebas Neue',sans-serif;font-size:36px;display:block;margin-bottom:20px}.cp-backdrop{position:fixed;inset:0;background:color-mix(in oklab,var(--bg-0) 75%,transparent);backdrop-filter:blur(8px);z-index:100}.cp-modal{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:color-mix(in oklab,var(--bg-0) 80%,transparent);backdrop-filter:blur(10px);padding:20px}.cp-modal.hidden{display:none}.cp-modal>div{width:min(550px,100%);max-height:90dvh;overflow:auto;padding:30px!important;background:var(--bg-1)!important;animation:cp-fade .45s var(--ease)}.cp-modal-close{position:absolute;right:15px;top:12px;background:transparent;color:var(--muted-ink);font-size:22px;border:0}.cp-modal>div{position:relative}.cp-add-actions{display:flex;gap:10px;margin:0 0 20px}.cp-add-actions button{padding:10px 16px}.cp-csv-drop{border:1px dashed var(--steel);padding:20px;border-radius:8px;background:color-mix(in oklab,var(--sky) 4%,transparent)}#admin-toast:not(.hidden),#emp-toast:not(.hidden){position:fixed;top:20px;right:20px;width:min(420px,calc(100vw - 40px));z-index:120;background:var(--bg-2)!important;box-shadow:var(--glass-shadow);animation:cp-drawer .4s var(--ease)}#admin-toast:not(.hidden):after,#emp-toast:not(.hidden):after{content:'';position:absolute;left:0;bottom:0;width:100%;height:2px;background:var(--sky);transform-origin:left;animation:cp-timer 5s linear forwards}.cp-enter{animation:cp-fade .6s var(--ease) both;animation-delay:calc(var(--i,0)*65ms)}.cp-loading{position:relative;overflow:hidden}.cp-loading:after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,color-mix(in oklab,var(--sky) 9%,transparent),transparent);animation:cp-shimmer 1.5s infinite}.cp-spinner{display:inline-block;width:12px;height:12px;border:2px solid var(--line);border-top-color:var(--ink);border-radius:50%;animation:cp-spin .7s linear infinite;margin-right:7px}.cp-paused *,.cp-paused *:before,.cp-paused *:after{animation-play-state:paused!important}.cp-hidden-number{position:absolute;visibility:hidden}.cp-count{font:inherit;color:inherit}.cp-safe{color:var(--safe)}.cp-text-muted{color:var(--muted-ink)}
+@keyframes cp-fade{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}@keyframes cp-drawer{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}@keyframes cp-globe{to{transform:rotate(342deg)}}@keyframes cp-risk{50%{box-shadow:0 0 14px color-mix(in oklab,var(--critical) 22%,transparent)}}@keyframes cp-shimmer{from{transform:translateX(-100%)}to{transform:translateX(100%)}}@keyframes cp-spin{to{transform:rotate(360deg)}}@keyframes cp-scan{50%{transform:translateY(330px)}}@keyframes cp-timer{to{transform:scaleX(0)}}
+@media(min-width:1024px){header>div:last-child{margin-left:auto}#tab-analytics>div.grid:nth-of-type(3)>div,#tab-analytics>div.grid:nth-of-type(4)>div{padding:24px!important}body[data-page=employee] header nav{display:none}}
+@media(max-width:700px){header{padding:18px 16px!important;gap:16px!important}header nav{overflow-x:auto;flex-wrap:nowrap!important;gap:0!important;margin-top:0}header nav .admin-tab-btn{padding:10px!important;font-size:11px!important}header>div:first-child{min-width:0}header>div:last-child{gap:10px!important}main{padding:20px 16px!important}.cp-hero{padding:25px 16px 15px}.cp-hero h2{font-size:43px}.cp-globe{right:-45px!important;opacity:.14!important}.cp-rule{display:none}#analyticsCampaignSelect{width:100%;max-width:100%;flex:auto}#tab-analytics>div:first-child button{margin-left:0!important;flex:1}.cp-kpi{min-height:125px}#tab-analytics>div.grid{gap:12px!important}.cp-auth-card{padding:24px!important}.cp-auth-brand{top:24px;left:24px}.cp-auth-title{font-size:49px}.cp-auth-intro{padding-top:110px}body[data-page=employee] header>div:last-child{flex-wrap:wrap}#csvUploadForm{flex-wrap:wrap;gap:12px}#csvFilePicker{width:100%;font-size:10px}#runAiRiskAnalysisBtn{width:100%}.cp-auth-card input{font-size:13px!important}header span.text-\[11px\]{font-size:8px!important}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
-    <div id="auth-alert" class="hidden mb-4 p-3 rounded-lg text-sm font-medium"></div>
+.cp-auth-intro{padding-top:0}.cp-auth-card{margin-top:25px}.cp-employee-auth,.cp-admin-auth{padding-top:110px!important;padding-bottom:55px!important;justify-content:center!important}.cp-auth-card>div:first-child h1{font-size:28px!important;font-family:"Bebas Neue",sans-serif}.cp-auth-card>div:first-child>div>div:last-child{min-width:0}.cp-auth-card>div:last-of-type{flex-wrap:wrap;gap:10px}.cp-auth-card .cp-brand{background:transparent!important;box-shadow:none!important;min-width:38px}.cp-auth-card .cp-brand svg{width:36px;height:36px}.cp-auth-intro .cp-eyebrow{margin-bottom:16px}.cp-auth-card>div:first-child>span{border-color:var(--line)!important}.cp-auth-card h1{color:var(--ink)!important}
+.cp-auth-card:has(#forgot-form:not(.hidden)){backdrop-filter:none;animation:none;transform:none;z-index:101;background:transparent!important;border-color:transparent!important;box-shadow:none}.cp-auth-card:has(#forgot-form:not(.hidden))>*:not(#forgot-form){visibility:hidden}
+</style></head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-center items-center p-4 cp-employee-auth" data-page="login"><div class="cp-auth-brand cp-brand"><svg aria-hidden="true" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M8 24C17 10 32 11 39 24C32 37 17 38 8 24ZM8 24L2 15V33L8 24Z" fill="var(--navy)" stroke="var(--sky)" stroke-width="1.5"></path><path d="M16 19H23L28 24H36M16 29H23L28 24M21 15V10M26 14V6M31 16V11M38 24H44V9H40" stroke="var(--sky)" stroke-width="1.5"></path><circle cx="31" cy="21" fill="var(--safe)" r="2"></circle><circle cx="16" cy="19" fill="var(--safe)" r="1.5"></circle><circle cx="16" cy="29" fill="var(--safe)" r="1.5"></circle></svg><div><strong>CogniPhish</strong><small>Building Safe Connections</small></div></div>
 
-    <!-- Employee Sign-In Form -->
-    <form id="login-form" class="space-y-4">
-      <div>
-        <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Corporate Email</label>
-        <input type="email" id="login-email" required placeholder="employee@company.com"
-          class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
-      </div>
-      <div>
-        <div class="flex justify-between items-center mb-1">
-          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
-          <button type="button" id="toggle-forgot-btn" class="text-xs text-blue-400 hover:text-blue-300">Forgot Password?</button>
-        </div>
-        <input type="password" id="login-password" required placeholder="•••••••• (Default: Employee123!)"
-          class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500" />
-      </div>
-      <button type="submit"
-        class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl shadow-lg shadow-blue-600/25 transition text-sm">
+<div class="hidden max-w-md w-full mb-4 bg-amber-500/10 border border-amber-500/40 text-amber-300 px-4 py-3 rounded-xl text-sm" id="isolation-banner"></div>
+<div class="cp-auth-intro"><span class="cp-eyebrow">Building Safe Connections</span><h2 class="cp-auth-title">Building a Safer Tomorrow</h2><p>Your people. Your first line of defense.</p></div><div class="max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-8 cp-glass cp-auth-card cp-glass">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center space-x-3">
+<div class="cp-brand"><svg aria-hidden="true" fill="none" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg"><path d="M8 24C17 10 32 11 39 24C32 37 17 38 8 24ZM8 24L2 15V33L8 24Z" fill="var(--navy)" stroke="var(--sky)" stroke-width="1.5"></path><path d="M16 19H23L28 24H36M16 29H23L28 24M21 15V10M26 14V6M31 16V11M38 24H44V9H40" stroke="var(--sky)" stroke-width="1.5"></path><circle cx="31" cy="21" fill="var(--safe)" r="2"></circle><circle cx="16" cy="19" fill="var(--safe)" r="1.5"></circle><circle cx="16" cy="29" fill="var(--safe)" r="1.5"></circle></svg></div>
+<div>
+<h1 class="text-xl font-bold text-ink">Security Awareness Hub</h1>
+<p class="text-xs text-slate-400">Employee Training &amp; Simulation Portal</p>
+</div>
+</div>
+<span class="text-[11px] bg-blue-500/10 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-full font-medium">Employee Portal</span>
+</div>
+<div aria-live="polite" class="hidden mb-4 p-3 rounded-lg text-sm font-medium" id="auth-alert" role="status"></div>
+
+<form class="space-y-4" id="login-form">
+<div>
+<label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1" for="login-email">Corporate Email</label>
+<input aria-label="employee@company.com" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-ink focus:outline-none focus:border-blue-500" id="login-email" placeholder="employee@company.com" required="" type="email"/>
+</div>
+<div>
+<div class="flex justify-between items-center mb-1">
+<label class="block text-xs font-semibold uppercase tracking-wider text-slate-400" for="login-password">Password</label>
+<button class="text-xs text-blue-400 hover:text-blue-300" id="toggle-forgot-btn" type="button">Forgot Password?</button>
+</div>
+<input aria-label="Enter your password" autocomplete="current-password" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-ink focus:outline-none focus:border-blue-500" id="login-password" placeholder="Enter your password" required="" type="password"/>
+</div>
+<button class="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-ink font-semibold rounded-xl shadow-lg shadow-blue-600/25 transition text-sm cp-primary" type="submit">
         Sign In to Training Portal
       </button>
-    </form>
+</form>
 
-    <!-- Forgot Password Drawer -->
-    <form id="forgot-form" class="hidden mt-4 pt-4 border-t border-slate-800 space-y-3">
-      <p class="text-xs text-slate-400">Enter your registered email to receive a password recovery link.</p>
-      <input type="email" id="forgot-email" required placeholder="you@company.com"
-        class="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white" />
-      <div class="flex space-x-2">
-        <button type="submit" class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg">Send Reset Link</button>
-        <button type="button" id="cancel-forgot-btn" class="px-3 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg">Cancel</button>
-      </div>
-    </form>
+<form class="hidden mt-4 pt-4 border-t border-slate-800 space-y-3" id="forgot-form">
+<p class="text-xs text-slate-400">Enter your registered email to receive a password recovery link.</p>
+<input aria-label="you@company.com" class="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-sm text-ink" id="forgot-email" placeholder="you@company.com" required="" type="email"/>
+<div class="flex space-x-2">
+<button class="flex-1 py-2 bg-indigo-600 hover:bg-indigo-500 text-ink text-xs font-semibold rounded-lg cp-primary" type="submit">Send Reset Link</button>
+<button class="px-3 py-2 bg-slate-800 text-slate-300 text-xs rounded-lg" id="cancel-forgot-btn" type="button">Cancel</button>
+</div>
+</form>
 
-    <!-- OAuth Divider -->
-    <div class="my-6 flex items-center">
-      <div class="flex-grow border-t border-slate-800"></div>
-      <span class="px-3 text-xs text-slate-500 uppercase">Or Single Sign-On</span>
-      <div class="flex-grow border-t border-slate-800"></div>
-    </div>
+<div class="my-6 flex items-center">
+<div class="flex-grow border-t border-slate-800"></div>
+<span class="px-3 text-xs text-slate-500 uppercase">Or Single Sign-On</span>
+<div class="flex-grow border-t border-slate-800"></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<a aria-label="Sign in with Google" class="flex items-center justify-center space-x-2 py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-200 transition" href="/api/auth/google">
+<span></span><span>Google SSO</span>
+</a>
+<a aria-label="Sign in with GitHub" class="flex items-center justify-center space-x-2 py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-200 transition" href="/api/auth/github">
+<span></span><span>GitHub SSO</span>
+</a>
+</div>
 
-    <div class="grid grid-cols-2 gap-3">
-      <a href="/api/auth/google"
-        class="flex items-center justify-center space-x-2 py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-200 transition">
-        <span>🌐</span><span>Google SSO</span>
-      </a>
-      <a href="/api/auth/github"
-        class="flex items-center justify-center space-x-2 py-2.5 px-4 bg-slate-950 hover:bg-slate-800 border border-slate-800 rounded-xl text-xs font-medium text-slate-200 transition">
-        <span>🐙</span><span>GitHub SSO</span>
-      </a>
-    </div>
-
-    <!-- Dedicated Link to Admin SOC Login -->
-    <div class="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-      <span>SOC Administrator?</span>
-      <a href="/admin-login" class="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center space-x-1">
-        <span>🔐 Go to Admin SOC Login</span>
-        <span>→</span>
-      </a>
-    </div>
-  </div>
-
-  <script src="/js/app.js"></script>
-</body>
+<div class="mt-6 pt-5 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+<span>SOC Administrator?</span>
+<a class="text-emerald-400 hover:text-emerald-300 font-semibold flex items-center space-x-1" href="/admin-login">
+<span> Go to Admin SOC Login</span>
+<span>→</span>
+</a>
+</div>
+</div><div class="cp-auth-footer">COGNIPHISH · HUMAN-LAYER SECURITY</div>
+<script src="/js/app.js"></script>
+<script>/* Additive presentation only. Original SME_Phishing_Simulator app.js stays unchanged. */
+(function(){'use strict';try{
+if(window.parent!==window){document.querySelectorAll('a[href^="/"]').forEach(a=>{if(a.target!=='_blank')a.target='_top'})}
+const UI=window.CP_UI=window.CP_UI||{};const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;const $=(s,r=document)=>r.querySelector(s);const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));const safe=fn=>(...args)=>{try{return fn(...args)}catch{}};let activeModal=null,returnFocus=null,observer=null;const frames=new Set();
+const raf=fn=>{const id=requestAnimationFrame(t=>{frames.delete(id);safe(fn)(t)});frames.add(id);return id};
+UI.close=safe(()=>{if(!activeModal)return;activeModal.classList.add('hidden');activeModal.removeAttribute('aria-modal');$('.cp-backdrop')?.remove();returnFocus?.focus();activeModal=null;document.body.style.overflow=''});
+UI.open=safe(el=>{if(!el)return;returnFocus=document.activeElement;activeModal=el;el.classList.remove('hidden');el.setAttribute('role','dialog');el.setAttribute('aria-modal','true');document.body.style.overflow='hidden';$('input,select,button',el)?.focus()});
+const onKey=safe(e=>{if(!activeModal)return;if(e.key==='Escape'){e.preventDefault();UI.close()}if(e.key==='Tab'){const all=$$('input,select,textarea,button,a[href]',activeModal).filter(el=>el.getClientRects().length);if(!all.length)return;const first=all[0],last=all[all.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}}});document.addEventListener('keydown',onKey);
+const tabs=$$('.admin-tab-btn');const nav=tabs[0]?.parentElement;let line;if(nav){nav.setAttribute('role','tablist');nav.setAttribute('aria-label','SOC console views');line=document.createElement('span');line.className='cp-tab-line';nav.append(line)}
+UI.tabs=safe(()=>{tabs.forEach(tab=>{const panel=document.getElementById(tab.dataset.tab);const selected=panel&&!panel.classList.contains('hidden');tab.setAttribute('role','tab');tab.setAttribute('aria-selected',String(Boolean(selected)));tab.setAttribute('aria-controls',tab.dataset.tab);tab.tabIndex=selected?0:-1;if(panel){panel.setAttribute('role','tabpanel');if(selected){panel.classList.remove('cp-enter');void panel.offsetWidth;panel.classList.add('cp-enter')}}if(selected&&line){line.style.width=tab.offsetWidth+'px';line.style.transform='translateX('+tab.offsetLeft+'px)'}})});
+tabs.forEach((tab,i)=>{tab.addEventListener('click',safe(()=>raf(UI.tabs)));tab.addEventListener('keydown',safe(e=>{let next;if(e.key==='ArrowRight')next=tabs[(i+1)%tabs.length];if(e.key==='ArrowLeft')next=tabs[(i+tabs.length-1)%tabs.length];if(e.key==='Home')next=tabs[0];if(e.key==='End')next=tabs[tabs.length-1];if(next){e.preventDefault();next.click();next.focus()}}))});UI.tabs();window.addEventListener('resize',UI.tabs);
+$$('.cp-enter,.cp-glass').forEach((el,i)=>el.style.setProperty('--i',Math.min(i,8)));if('IntersectionObserver' in window&&!reduced){observer=new IntersectionObserver(safe(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('cp-enter');observer.unobserve(e.target)}})),{threshold:.04});$$('.cp-glass').forEach(el=>observer.observe(el))}
+// Animate a visual clone, never mutate the authoritative metric value.
+const metrics=$$('#metricTotalRecipients,#kpi-total-sent,#metricTotalClicked,#metricTotalCompromised');metrics.forEach(el=>{let previous='';const count=safe(()=>{const raw=el.textContent.trim();if(raw===previous)return;previous=raw;const value=Number(raw.replace(/,/g,''));if(reduced||!Number.isFinite(value)||!value)return;const clone=document.createElement('span');clone.className='cp-count';clone.setAttribute('aria-hidden','true');el.after(clone);el.classList.add('cp-hidden-number');const start=performance.now();const run=t=>{if(document.hidden){clone.remove();el.classList.remove('cp-hidden-number');return}const fraction=Math.min((t-start)/1200,1);clone.textContent=Math.round(value*(1-Math.pow(1-fraction,3))).toLocaleString();if(fraction<1)raf(run);else{clone.remove();el.classList.remove('cp-hidden-number')}};raf(run)});new MutationObserver(count).observe(el,{childList:true,characterData:true,subtree:true});count()});
+UI.enhance=safe(root=>{$$('tbody tr',root).forEach((el,i)=>el.style.animationDelay=Math.min(i,10)*30+'ms');$$('#heatmapGrid [title]',root).forEach((el,i)=>{el.style.animationDelay=((Math.floor(i/24)+i%24)*15)+'ms';el.tabIndex=0;el.setAttribute('aria-label',el.title)});$$('span',root).filter(el=>el.childElementCount===0&&el.textContent.includes('CRITICAL')).forEach(el=>el.classList.add('cp-critical'));$$('input,select,textarea',root).forEach(el=>{if(!el.getAttribute('aria-label')&&!document.querySelector('label[for="'+el.id+'"]'))el.setAttribute('aria-label',el.placeholder||el.previousElementSibling?.textContent.trim()||el.id)});$$('[id$="TableBody"],#emp-modules-list',root).forEach(el=>el.setAttribute('aria-live','polite'))});UI.enhance(document);
+const contentObserver=new MutationObserver(safe(records=>{records.forEach(record=>record.addedNodes.forEach(n=>{if(n.nodeType===1)UI.enhance(n)}));const ai=$('#aiRiskAnalysisBox');if(ai){const loading=/analyzing|generating|loading/i.test(ai.textContent);ai.classList.toggle('cp-loading',loading);ai.setAttribute('aria-busy',String(loading))}}));contentObserver.observe(document.body,{subtree:true,childList:true});
+const forgot=$('#forgot-form');if(forgot){forgot.setAttribute('aria-label','Password recovery');$('#toggle-forgot-btn')?.addEventListener('click',safe(()=>{if(forgot.classList.contains('hidden')){UI.close();return}const backdrop=document.createElement('div');backdrop.className='cp-backdrop';document.body.append(backdrop);backdrop.addEventListener('click',UI.close);UI.open(forgot)}));$('#cancel-forgot-btn')?.addEventListener('click',UI.close)}
+$$('.cp-modal').forEach(modal=>{modal.setAttribute('aria-label',modal.dataset.title||'Target management');modal.addEventListener('click',safe(e=>{if(e.target===modal)UI.close()}));$('.cp-modal-close',modal)?.addEventListener('click',UI.close)});$$('[data-cp-open]').forEach(btn=>btn.addEventListener('click',safe(()=>UI.open(document.getElementById(btn.dataset.cpOpen)))));
+const csv=$('#csvFilePicker');if(csv){const zone=csv.closest('.cp-csv-drop');if(zone){zone.addEventListener('dragover',safe(e=>{e.preventDefault();zone.style.borderColor='var(--sky)'}));zone.addEventListener('dragleave',safe(()=>zone.style.borderColor=''));zone.addEventListener('drop',safe(e=>{e.preventDefault();zone.style.borderColor='';if(e.dataTransfer.files.length){csv.files=e.dataTransfer.files;csv.dispatchEvent(new Event('change',{bubbles:true}))}}))}}
+// Chart plugin is registered before the app loads its asynchronous data.
+if(window.Chart){Chart.defaults.font.family='Inter';const token=name=>getComputedStyle(document.documentElement).getPropertyValue(name).trim();Chart.register({id:'cpTheme',beforeInit:safe(chart=>{chart.options.animation=reduced?false:{duration:900,easing:'easeOutQuart',delay:ctx=>ctx.type==='data'?ctx.dataIndex*90:0};chart.options.plugins.tooltip={backgroundColor:token('--bg-1'),titleColor:token('--ink'),bodyColor:token('--muted-ink'),borderColor:token('--line'),borderWidth:1,padding:12};Object.values(chart.options.scales||{}).forEach(scale=>{if(scale.ticks)scale.ticks.color=token('--muted-ink');if(scale.grid)scale.grid.color=token('--line')})}),beforeDatasetsUpdate:safe(chart=>{chart.data.datasets.forEach(set=>{set.backgroundColor=[token('--steel'),token('--sky'),token('--amber'),token('--critical')];set.borderRadius=5;set.maxBarThickness=65})})})}
+const visibility=safe(()=>document.body.classList.toggle('cp-paused',document.hidden));document.addEventListener('visibilitychange',visibility);UI.destroy=safe(()=>{observer?.disconnect();contentObserver.disconnect();frames.forEach(cancelAnimationFrame);document.removeEventListener('keydown',onKey);document.removeEventListener('visibilitychange',visibility);window.removeEventListener('resize',UI.tabs)});
+// Embedded preview height and location bridge; standalone pages require no bridge.
+if(window.parent!==window){const notify=safe(()=>window.parent.postMessage({source:'CP_UI',height:Math.max(document.body.scrollHeight,window.innerHeight)},window.location.origin));new ResizeObserver(notify).observe(document.body);notify()}
+}catch(error){console.warn('[CP_UI] Presentation enhancement unavailable.')}})();
+</script></body>
 </html>

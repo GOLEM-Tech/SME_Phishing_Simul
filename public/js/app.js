@@ -90,6 +90,12 @@
       .replace(/'/g, '&#039;');
   }
 
+  function closeAnyModal() {
+    if (window.CP_UI && typeof window.CP_UI.close === 'function') {
+      window.CP_UI.close();
+    }
+  }
+
   // Intercept OAuth Redirect Callbacks Across Any Entrypoint
   const incomingOAuthToken = urlParams.get('oauth_token');
   const incomingSessionId = urlParams.get('session_id');
@@ -212,6 +218,7 @@
           });
           showLoginAlert(res.message, false);
           forgotForm.classList.add('hidden');
+          closeAnyModal();
         } catch (err) {
           showLoginAlert(err.message, true);
         }
@@ -253,103 +260,6 @@
   }
 
   // =========================================================================
-  // PAGE 3: /onboarding (Department Selection & Verification Waiting Room)
-  // =========================================================================
-  if (page === 'onboarding' || window.location.pathname.includes('/onboarding')) {
-    const token = getAuthToken();
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
-
-    const user = getAuthUser();
-    const nameEl = document.getElementById('onboarding-name');
-    const sessEl = document.getElementById('onboarding-session-badge');
-    if (nameEl && user) nameEl.textContent = user.name || user.email;
-    if (sessEl) sessEl.textContent = getSessionId() || 'sess_active';
-
-    const alertBox = document.getElementById('onboarding-alert');
-    const showOnboardingMsg = (msg, ok = true) => {
-      if (!alertBox) return;
-      alertBox.className = `mb-4 p-3 rounded-lg text-xs font-medium ${
-        ok ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
-      }`;
-      alertBox.textContent = msg;
-      alertBox.classList.remove('hidden');
-    };
-
-    const form = document.getElementById('onboarding-form');
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const department = document.getElementById('onboarding-dept')?.value;
-        try {
-          const res = await apiFetch('/api/auth/onboarding', {
-            method: 'POST',
-            body: JSON.stringify({ department }),
-          });
-          showOnboardingMsg(res.message, true);
-        } catch (err) {
-          showOnboardingMsg(err.message, false);
-        }
-      });
-    }
-
-    const checkBtn = document.getElementById('onboarding-check-btn');
-    if (checkBtn) {
-      checkBtn.addEventListener('click', async () => {
-        try {
-          const data = await apiFetch('/api/auth/me');
-          if (data.user && data.user.approval_status === 'Approved') {
-            saveAuthSession(getAuthToken(), data.user, data.sessionId || getSessionId());
-            window.location.href = '/employee';
-          } else {
-            showOnboardingMsg('Your profile is still awaiting Administrator approval.', false);
-          }
-        } catch (err) {
-          showOnboardingMsg(err.message, false);
-        }
-      });
-    }
-  }
-
-  // =========================================================================
-  // PAGE 4: /reset-password (Secure Password Recovery Action)
-  // =========================================================================
-  if (page === 'reset-password' || window.location.pathname.includes('/reset-password')) {
-    const resetToken = urlParams.get('token');
-    const alertBox = document.getElementById('reset-alert') || document.getElementById('resetPasswordFeedback');
-    const form = document.getElementById('reset-password-form') || document.getElementById('resetPasswordForm');
-
-    if (form) {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const newPassword = document.getElementById('new-password')?.value || document.getElementById('newPasswordInput')?.value;
-        try {
-          const res = await apiFetch('/api/auth/reset-password', {
-            method: 'POST',
-            body: JSON.stringify({ token: resetToken, newPassword }),
-          });
-          if (alertBox) {
-            alertBox.className = 'mb-4 p-3 rounded-lg text-xs bg-emerald-500/10 border border-emerald-500/40 text-emerald-300';
-            alertBox.textContent = res.message;
-            alertBox.classList.remove('hidden');
-          }
-          setTimeout(() => {
-            window.location.href = '/login';
-          }, 1500);
-        } catch (err) {
-          if (alertBox) {
-            alertBox.className = 'mb-4 p-3 rounded-lg text-xs bg-rose-500/10 border border-rose-500/40 text-rose-300';
-            alertBox.textContent = err.message;
-            alertBox.classList.remove('hidden');
-          }
-        }
-      });
-    }
-  }
-
-  // =========================================================================
   // PAGE 5: /employee (Isolated Portal, Assigned-Only Quizzes & Awareness Quotes)
   // =========================================================================
   if (page === 'employee' || window.location.pathname.includes('/employee')) {
@@ -366,14 +276,10 @@
       return;
     }
 
-    const greetingEl = document.getElementById('emp-portal-greeting') || document.getElementById('empGreeting') || document.getElementById('empPortalName');
+    const greetingEl = document.getElementById('emp-portal-greeting') || document.getElementById('empGreeting');
     const sessionEl = document.getElementById('emp-session-id') || document.getElementById('empSessionId');
-    const riskEl = document.getElementById('emp-portal-risk') || document.getElementById('empRiskBadge') || document.getElementById('empContextRisk');
-    const deptEl = document.getElementById('empContextDept');
+    const riskEl = document.getElementById('emp-portal-risk') || document.getElementById('empRiskBadge');
 
-    // -------------------------------------------------------------------------
-    // Rotating Awareness Quotes Engine (5 Distinct Tiers)
-    // -------------------------------------------------------------------------
     const undeterminedQuotes = [
       {
         tag: 'Welcome to Security Training',
@@ -382,10 +288,6 @@
       {
         tag: 'Baseline Awareness Advice',
         quote: 'Legitimate organizations will never demand your passwords, PINs, or emergency gift card transfers via unsolicited emails.',
-      },
-      {
-        tag: 'Reporting Best Practice',
-        quote: 'Spot something fishy? Report unexpected lures to your security operations team to protect colleagues across your organization.',
       }
     ];
 
@@ -393,14 +295,6 @@
       {
         tag: 'Critical Compromise Alert (100% Risk)',
         quote: 'Account compromised: Credentials were submitted during a recent drill. Review mandatory awareness modules immediately.',
-      },
-      {
-        tag: 'Account Security Advisory',
-        quote: 'Credentials submitted on external forms can compromise corporate infrastructure. Complete your assigned quizzes to reset your tier.',
-      },
-      {
-        tag: 'Immediate Remediation Guidance',
-        quote: 'Never enter your corporate network credentials into external forms or unverified third-party sign-in screens.',
       }
     ];
 
@@ -408,14 +302,6 @@
       {
         tag: 'High Risk Notice (40% Risk)',
         quote: 'Your risk score is getting higher — stay safe, stay away from any sketchy links, your account will thank you!',
-      },
-      {
-        tag: 'Link Safety Warning',
-        quote: 'You clicked a suspicious link in a recent exercise. Always verify the sender domain before interacting with hyperlinks.',
-      },
-      {
-        tag: 'Domain Inspection Tip',
-        quote: 'Inspect domain spelling carefully. Attackers frequently use typosquatting or subtle hyphenated brand lookalikes.',
       }
     ];
 
@@ -423,10 +309,6 @@
       {
         tag: 'Low Risk Reminder (15% Risk)',
         quote: 'You opened a simulated email. Good discipline avoiding the link—always cross-check urgent requests before taking action.',
-      },
-      {
-        tag: 'Sender Masking Notice',
-        quote: 'Check the actual sender address, not just the display name. Attackers often mask their true email address.',
       }
     ];
 
@@ -434,10 +316,6 @@
       {
         tag: 'Perfect Security Posture (0% Risk)',
         quote: 'Flawless defense! No clicks, no credential drops, and no compromises detected. Keep scrutinizing incoming messages.',
-      },
-      {
-        tag: 'Exemplary Defense',
-        quote: 'Your diligence protects the enterprise. Continue verifying unsolicited attachments and unusual urgent requests.',
       }
     ];
 
@@ -475,9 +353,9 @@
       }
 
       const current = quotePool[quoteIndex % quotePool.length];
-      const banner = document.getElementById('awareness-quote-banner') || document.getElementById('awarenessQuoteBanner');
-      const tagEl = document.getElementById('awareness-quote-tag') || document.getElementById('awarenessQuoteTag');
-      const textEl = document.getElementById('awareness-quote-text') || document.getElementById('awarenessQuote');
+      const banner = document.getElementById('awareness-quote-banner');
+      const tagEl = document.getElementById('awareness-quote-tag');
+      const textEl = document.getElementById('awareness-quote-text');
       const iconEl = document.getElementById('awareness-quote-icon');
 
       if (banner && tagEl && textEl) {
@@ -486,12 +364,9 @@
         tagEl.textContent = current.tag;
         textEl.textContent = `"${current.quote}"`;
         if (iconEl) iconEl.textContent = icon;
-      } else if (textEl) {
-        textEl.textContent = current.quote;
       }
     }
 
-    // Attach click listener for "Next Tip ↻" button
     const rotateBtn = document.getElementById('awareness-rotate-btn');
     if (rotateBtn) {
       rotateBtn.addEventListener('click', () => {
@@ -500,11 +375,8 @@
       });
     }
 
-    // Always-Available 5 Study Curriculum Modules
     async function loadAlwaysAvailableModules() {
-      const container = document.getElementById('emp-modules-list') || 
-                        document.getElementById('trainingModulesContainer') || 
-                        document.getElementById('training-modules-container');
+      const container = document.getElementById('emp-modules-list') || document.getElementById('trainingModulesContainer');
       if (!container) return;
 
       try {
@@ -539,11 +411,9 @@
         });
       } catch (err) {
         console.warn('Could not load modules:', err.message);
-        container.innerHTML = `<div class="text-rose-400 text-xs">${escapeHtml(err.message)}</div>`;
       }
     }
 
-    // Interactive Reader for Study Modules in the Right-Hand Workspace
     function openModuleReader(mod) {
       const workspace = document.getElementById('quiz-workspace');
       if (!workspace) return;
@@ -596,9 +466,8 @@
       });
     }
 
-    // Assigned Remediation Quizzes
     async function loadAssignedQuizzesOnly(empId, empName) {
-      const listEl = document.getElementById('emp-quizzes-list') || document.getElementById('assignedQuizzesList');
+      const listEl = document.getElementById('emp-quizzes-list');
       const welcomeBox = document.getElementById('unassigned-welcome-box');
       const welcomeText = document.getElementById('unassigned-welcome-text');
       const countBadge = document.getElementById('assigned-badge-count');
@@ -619,13 +488,6 @@
             if (welcomeText) {
               welcomeText.textContent = `Hello ${escapeHtml(empName || 'there')}, you look new here, welcome to the phishing awareness program!!`;
             }
-          } else {
-            listEl.innerHTML = `
-              <div class="p-5 bg-slate-900/60 border border-slate-800 rounded-xl text-center">
-                <p class="text-xs font-semibold text-emerald-400">All clear! No mandatory quizzes assigned to your profile.</p>
-                <p class="text-[11px] text-slate-400 mt-1">Review standard study modules below to maintain your cyber hygiene.</p>
-              </div>
-            `;
           }
           return;
         }
@@ -652,43 +514,36 @@
       }
     }
 
-    // Historical Assessment Records
     async function loadEmployeeQuizHistory(empId) {
-      const historyBody = document.getElementById('empQuizHistoryBody') || document.getElementById('emp-quiz-history-body');
-      const countEl = document.getElementById('empContextCompletedCount');
+      const historyBody = document.getElementById('emp-history-list') || document.getElementById('empQuizHistoryBody');
       if (!historyBody) return;
       try {
         const res = await apiFetch(`/api/quizzes/employee/${empId}`);
         const history = Array.isArray(res) ? res : (res.quizHistory || res.data?.quizHistory || []);
-        
-        if (countEl) {
-          countEl.textContent = history.filter(h => h.passed).length;
-        }
 
         if (history.length === 0) {
-          historyBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">No completed assessments recorded.</td></tr>';
+          historyBody.innerHTML = '<div class="text-xs text-slate-400">No attempts recorded yet.</div>';
           return;
         }
+
         historyBody.innerHTML = history.map((h) => `
-          <tr class="hover:bg-slate-900/40">
-            <td class="p-3 text-white font-medium text-xs">${escapeHtml(h.quiz_title)}</td>
-            <td class="p-3 text-xs font-bold ${h.passed ? 'text-emerald-400' : 'text-rose-400'}">${h.score}%</td>
-            <td class="p-3 text-xs">
-              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${h.passed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
-                ${h.passed ? 'PASSED' : 'RETAKE REQUIRED'}
-              </span>
-            </td>
-            <td class="p-3 text-slate-400 text-xs">${new Date(h.completed_at).toLocaleDateString()}</td>
-          </tr>
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-white text-xs">${escapeHtml(h.quiz_title)}</div>
+              <div class="text-[10px] text-slate-400">${new Date(h.completed_at).toLocaleDateString()} • Score: ${h.score}%</div>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${h.passed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                ${h.passed ? 'PASSED' : 'FAILED'}
+            </span>
+          </div>
         `).join('');
       } catch (e) {
         console.warn('Could not load quiz history:', e.message);
       }
     }
 
-    // Interactive Quiz Workspace & Submission
     async function openQuizWorkspace(quizId, empId) {
-      const workspace = document.getElementById('quiz-workspace') || document.getElementById('quizWorkspace');
+      const workspace = document.getElementById('quiz-workspace');
       if (!workspace) return;
       try {
         const data = await apiFetch(`/api/quizzes/${quizId}/questions`);
@@ -700,7 +555,7 @@
               <span class="text-[11px] uppercase tracking-wider text-blue-400 font-bold">Assigned Remediation Drill</span>
               <h2 class="text-lg font-bold text-white mt-1">${escapeHtml(quiz.title)}</h2>
               <div class="mt-3 p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 leading-relaxed whitespace-pre-line">
-                ${escapeHtml(quiz.module_content || quiz.content || 'Carefully review each scenario and question before submitting your response.')}
+                ${escapeHtml(quiz.module_content || 'Carefully review each scenario and question before submitting your response.')}
               </div>
             </div>
 
@@ -766,7 +621,6 @@
       }
     }
 
-    // Employee Portal Initialization
     async function initEmployeePortal() {
       try {
         const me = await apiFetch('/api/auth/me');
@@ -777,7 +631,6 @@
         const emp = me.user;
 
         if (emp.role === 'Admin') {
-          console.warn('[Session Notice]: Admin profile detected in Employee Hub. Redirecting to SOC.');
           window.location.replace('/admin');
           return;
         }
@@ -793,16 +646,8 @@
         if (greetingEl) {
           greetingEl.textContent = `${emp.name} (${emp.email})`;
         }
-        if (deptEl) {
-          deptEl.textContent = emp.department || 'General';
-        }
         if (riskEl && emp.risk_level) {
           riskEl.textContent = emp.risk_level;
-          let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
-          if (emp.risk_level.includes('CRITICAL')) badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold';
-          else if (emp.risk_level.includes('High')) badgeColor = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
-          else if (emp.risk_level.includes('Low')) badgeColor = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
-          riskEl.className = `text-xs font-bold px-2.5 py-0.5 rounded border ${badgeColor}`;
         }
         if (sessionEl) {
           sessionEl.textContent = me.sessionId || getSessionId() || 'sess_active';
@@ -818,7 +663,6 @@
           openQuizWorkspace(Number(assignedQuizParam), emp.id);
         }
       } catch (err) {
-        console.error('[Employee Portal Auth Catch]:', err.message);
         clearAuthSession();
         window.location.replace('/login?portal=employee');
       }
@@ -841,8 +685,8 @@
       return;
     }
 
-    const adminUserDisplay = document.getElementById('admin-user-display') || document.getElementById('sessionUserName') || document.getElementById('adminSidebarName');
-    const adminSessionBadge = document.getElementById('admin-session-id') || document.getElementById('sessionUserEmail') || document.getElementById('adminSidebarEmail');
+    const adminUserDisplay = document.getElementById('admin-user-display');
+    const adminSessionBadge = document.getElementById('admin-session-id');
 
     if (adminUserDisplay) {
       adminUserDisplay.textContent = `${user?.name || payload?.name || 'Admin'} (${user?.email || payload?.email || ''})`;
@@ -851,7 +695,7 @@
       adminSessionBadge.textContent = payload?.sessionId || getSessionId() || 'sess_active';
     }
 
-    const toastEl = document.getElementById('admin-toast') || document.getElementById('globalToast');
+    const toastEl = document.getElementById('admin-toast');
     function showToast(msg, ok = true) {
       if (!toastEl) return;
       toastEl.className = `p-3.5 rounded-xl text-xs font-semibold border ${
@@ -866,9 +710,7 @@
       setTimeout(() => toastEl.classList.add('hidden'), 5000);
     }
 
-    // -------------------------------------------------------------------------
-    // Tab Navigation Configuration (Dual-Selector Compatible)
-    // -------------------------------------------------------------------------
+    // Tab Navigation Configuration
     let tabBtns = document.querySelectorAll('.admin-tab-btn');
     if (!tabBtns.length) tabBtns = document.querySelectorAll('.admin-nav-btn');
 
@@ -883,14 +725,14 @@
           b.className = 'admin-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
         });
 
-        btn.className = 'admin-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition';
+        btn.className = 'admin-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition cp-primary';
 
         tabSections.forEach((sec) => {
           const match = sec.id === target || sec.id === `tab-${target}` || sec.id.replace('tab-', '') === target;
           sec.classList.toggle('hidden', !match);
         });
 
-        if (target === 'tab-audit' || target === 'pageAwareness' || target === 'audit') {
+        if (target === 'tab-audit' || target === 'audit') {
           loadAuditLogs(1);
         } else if (target === 'tab-employees' || target === 'employees') {
           loadEmployees();
@@ -902,9 +744,7 @@
       });
     });
 
-    // -------------------------------------------------------------------------
-    // Chart.js Funnel Tracking Controller & Multi-Campaign Rollup
-    // -------------------------------------------------------------------------
+    // Funnel & KPI Loader
     let funnelChartInstance = null;
 
     async function loadCampaignFunnelAndKPIs(campaignId) {
@@ -925,11 +765,11 @@
 
         const elSent = document.getElementById('kpi-total-sent') || document.getElementById('metricTotalSent');
         const elOpenRate = document.getElementById('kpi-open-rate');
-        const elClicked = document.getElementById('kpi-total-clicked') || document.getElementById('metricTotalClicked');
-        const elClickRate = document.getElementById('kpi-click-rate') || document.getElementById('metricClickRate');
-        const elComp = document.getElementById('kpi-total-compromised') || document.getElementById('metricTotalCompromised');
-        const elCompRate = document.getElementById('kpi-compromise-rate') || document.getElementById('metricCompromiseRate');
-        const elLabel = document.getElementById('funnel-campaign-label') || document.getElementById('funnelActiveCampaignLabel');
+        const elClicked = document.getElementById('metricTotalClicked') || document.getElementById('kpi-total-clicked');
+        const elClickRate = document.getElementById('metricClickRate') || document.getElementById('kpi-click-rate');
+        const elComp = document.getElementById('metricTotalCompromised') || document.getElementById('kpi-total-compromised');
+        const elCompRate = document.getElementById('metricCompromiseRate') || document.getElementById('kpi-compromise-rate');
+        const elLabel = document.getElementById('funnelActiveCampaignLabel') || document.getElementById('funnel-campaign-label');
 
         if (elSent) elSent.textContent = sent;
         if (elOpenRate) elOpenRate.textContent = `${openRate}% Opened (${opened})`;
@@ -946,7 +786,7 @@
           }
         }
 
-        const ctx = document.getElementById('campaignFunnelChart') || document.getElementById('campaign-funnel-chart');
+        const ctx = document.getElementById('campaignFunnelChart');
         if (ctx && window.Chart) {
           if (funnelChartInstance) funnelChartInstance.destroy();
           funnelChartInstance = new window.Chart(ctx, {
@@ -989,7 +829,7 @@
 
     // 24x7 Activity Matrix (Temporal Heatmap)
     async function loadHeatmapMatrix() {
-      const container = document.getElementById('heatmapGrid') || document.getElementById('heatmap-grid');
+      const container = document.getElementById('heatmapGrid');
       if (!container) return;
       try {
         const res = await apiFetch('/api/analytics/heatmap');
@@ -1033,7 +873,6 @@
       }
     }
 
-    // Authenticated PDF/CSV Report Downloader
     async function downloadProtectedReport(url, filename) {
       try {
         const token = getAuthToken();
@@ -1049,13 +888,12 @@
         link.click();
         link.remove();
         showToast(`Downloaded ${filename}`);
-        loadAuditLogs();
       } catch (err) {
         showToast(err.message, false);
       }
     }
 
-    const analyticsSelect = document.getElementById('analyticsCampaignSelect') || document.getElementById('analytics-campaign-select');
+    const analyticsSelect = document.getElementById('analyticsCampaignSelect');
     if (analyticsSelect) {
       analyticsSelect.addEventListener('change', () => {
         loadCampaignFunnelAndKPIs(analyticsSelect.value);
@@ -1074,17 +912,17 @@
 
     // Employee Roster Management
     async function loadEmployees() {
-      const tbody = document.getElementById('rosterTableBody') || document.getElementById('employees-tbody') || document.getElementById('employeeTableBody');
+      const tbody = document.getElementById('rosterTableBody');
       const assignEmpSelect = document.getElementById('assign-emp-select');
-      const search = (document.getElementById('rosterSearchInput') || document.getElementById('emp-search') || document.getElementById('searchInput'))?.value.trim() || '';
-      const riskFilter = (document.getElementById('rosterRiskFilter') || document.getElementById('emp-risk-filter') || document.getElementById('riskFilter'))?.value || '';
+      const search = document.getElementById('rosterSearchInput')?.value.trim() || '';
+      const riskFilter = document.getElementById('rosterRiskFilter')?.value || '';
       if (!tbody) return;
 
       try {
         const data = await apiFetch(`/api/employees?limit=200&search=${encodeURIComponent(search)}`);
         let list = Array.isArray(data) ? data : (data.employees || data.data || []);
 
-        const kpiRecipients = document.getElementById('metricTotalRecipients') || document.getElementById('kpi-total-recipients') || document.getElementById('totalRecordsCount');
+        const kpiRecipients = document.getElementById('metricTotalRecipients');
         if (kpiRecipients) kpiRecipients.textContent = list.length;
 
         if (riskFilter) {
@@ -1138,7 +976,6 @@
               });
               showToast('Employee approved!');
               loadEmployees();
-              loadAuditLogs();
             } catch (err) {
               showToast(err.message, false);
             }
@@ -1152,7 +989,6 @@
               await apiFetch(`/api/employees/${btn.dataset.delId}`, { method: 'DELETE' });
               showToast('Employee deleted.');
               loadEmployees();
-              loadAuditLogs();
             } catch (err) {
               showToast(err.message, false);
             }
@@ -1169,7 +1005,7 @@
       }
     }
 
-    const addEmpForm = document.getElementById('addEmployeeForm') || document.getElementById('createEmployeeForm') || document.getElementById('add-employee-form');
+    const addEmpForm = document.getElementById('addEmployeeForm');
     if (addEmpForm) {
       addEmpForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1177,26 +1013,26 @@
           await apiFetch('/api/employees', {
             method: 'POST',
             body: JSON.stringify({
-              name: (document.getElementById('addEmpName') || document.getElementById('newEmpName') || document.getElementById('emp-name'))?.value.trim(),
-              email: (document.getElementById('addEmpEmail') || document.getElementById('newEmpEmail') || document.getElementById('emp-email'))?.value.trim(),
-              department: (document.getElementById('addEmpDept') || document.getElementById('newEmpDept') || document.getElementById('emp-dept'))?.value,
+              name: document.getElementById('addEmpName')?.value.trim(),
+              email: document.getElementById('addEmpEmail')?.value.trim(),
+              department: document.getElementById('addEmpDept')?.value,
             }),
           });
           addEmpForm.reset();
           showToast('Target employee added.');
+          closeAnyModal();
           loadEmployees();
-          loadAuditLogs();
         } catch (err) {
           showToast(err.message, false);
         }
       });
     }
 
-    const csvForm = document.getElementById('csvUploadForm') || document.getElementById('csv-upload-form');
+    const csvForm = document.getElementById('csvUploadForm');
     if (csvForm) {
       csvForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const fileInput = document.getElementById('csvFilePicker') || document.getElementById('csvFileInput') || document.getElementById('csv-file');
+        const fileInput = document.getElementById('csvFilePicker');
         if (!fileInput || !fileInput.files.length) return;
         const formData = new FormData();
         formData.append('file', fileInput.files[0]);
@@ -1207,23 +1043,23 @@
           });
           showToast(res.message || 'CSV imported successfully.');
           csvForm.reset();
+          closeAnyModal();
           loadEmployees();
-          loadAuditLogs();
         } catch (err) {
           showToast(err.message, false);
         }
       });
     }
 
-    (document.getElementById('rosterSearchInput') || document.getElementById('searchInput'))?.addEventListener('input', loadEmployees);
-    (document.getElementById('rosterRiskFilter') || document.getElementById('riskFilter'))?.addEventListener('change', loadEmployees);
+    document.getElementById('rosterSearchInput')?.addEventListener('input', loadEmployees);
+    document.getElementById('rosterRiskFilter')?.addEventListener('change', loadEmployees);
 
     // Resources & Campaign Management
     async function loadCampaignResources() {
       try {
         const res = await apiFetch('/api/templates');
         const templates = Array.isArray(res) ? res : (res.templates || res.data || []);
-        const tplSelect = document.getElementById('campTemplateSelect') || document.getElementById('camp-template');
+        const tplSelect = document.getElementById('campTemplateSelect');
         if (tplSelect && templates.length) {
           tplSelect.innerHTML = templates.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
         }
@@ -1236,14 +1072,14 @@
         { id: 4, name: 'Jio 5G SIM e-KYC Clone' },
         { id: 5, name: 'MrBreast YouTube Collab Invite' },
       ];
-      const lpSelect = document.getElementById('campLandingSelect') || document.getElementById('camp-landing');
+      const lpSelect = document.getElementById('campLandingSelect');
       if (lpSelect) {
         lpSelect.innerHTML = defaultLandings.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
       }
     }
 
     async function loadCampaigns() {
-      const tbody = document.getElementById('campaignTableBody') || document.getElementById('campaigns-tbody');
+      const tbody = document.getElementById('campaignTableBody');
       if (!tbody) return;
       try {
         const data = await apiFetch('/api/campaigns');
@@ -1281,7 +1117,7 @@
               </td>
               <td class="py-2.5 px-3 text-slate-400 text-xs">${escapeHtml(c.template_name || 'Standard Template')}</td>
               <td class="py-2.5 px-3 text-right space-x-2">
-                <button data-send-id="${c.id}" data-camp-name="${escapeHtml(c.name)}" class="send-camp-btn px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-semibold transition">
+                <button data-send-id="${c.id}" data-camp-name="${escapeHtml(c.name)}" class="send-camp-btn px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-semibold transition cp-primary">
                   🚀 Dispatch
                 </button>
                 <button data-pdf-id="${c.id}" class="pdf-camp-btn px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px]">PDF</button>
@@ -1294,7 +1130,7 @@
       }
     }
 
-    const campaignsTbody = document.getElementById('campaignTableBody') || document.getElementById('campaigns-tbody');
+    const campaignsTbody = document.getElementById('campaignTableBody');
     if (campaignsTbody && !campaignsTbody.dataset.listenerAttached) {
       campaignsTbody.dataset.listenerAttached = 'true';
 
@@ -1325,7 +1161,6 @@
             });
             showToast(res.message || 'Campaign dispatched successfully!');
             await loadCampaigns();
-            await loadAuditLogs();
           } catch (err) {
             showToast(err.message || 'Failed to dispatch campaign', false);
             alert(`Dispatch Error: ${err.message}`);
@@ -1348,7 +1183,7 @@
       });
     }
 
-    const createCampForm = document.getElementById('createCampaignForm') || document.getElementById('create-campaign-form');
+    const createCampForm = document.getElementById('createCampaignForm');
     if (createCampForm) {
       createCampForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1356,17 +1191,16 @@
           await apiFetch('/api/campaigns', {
             method: 'POST',
             body: JSON.stringify({
-              name: (document.getElementById('campNameInput') || document.getElementById('camp-name'))?.value.trim(),
-              description: (document.getElementById('campDescInput') || document.getElementById('camp-desc'))?.value.trim(),
-              template_id: Number((document.getElementById('campTemplateSelect') || document.getElementById('camp-template'))?.value) || 1,
-              landing_page_id: Number((document.getElementById('campLandingSelect') || document.getElementById('camp-landing'))?.value) || 1,
-              department: document.getElementById('camp-target-dept')?.value || 'ALL',
+              name: document.getElementById('campNameInput')?.value.trim(),
+              description: document.getElementById('campDescInput')?.value.trim(),
+              template_id: Number(document.getElementById('campTemplateSelect')?.value) || 1,
+              landing_page_id: Number(document.getElementById('campLandingSelect')?.value) || 1,
+              department: 'ALL',
             }),
           });
           showToast('Campaign created!');
           createCampForm.reset();
           loadCampaigns();
-          loadAuditLogs();
         } catch (err) {
           showToast(err.message, false);
         }
@@ -1374,39 +1208,72 @@
     }
 
     // Gemini AI Phishing Pretext Generator
-    const triggerAiBtn = document.getElementById('triggerAiGenerationBtn');
-    if (triggerAiBtn) {
-      triggerAiBtn.addEventListener('click', async () => {
-        const preview = document.getElementById('aiResultArea') || document.getElementById('ai-template-preview');
+    const aiForm = document.getElementById('ai-generate-form');
+    if (aiForm) {
+      aiForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const preview = document.getElementById('ai-template-preview');
+        const subjectEl = document.getElementById('ai-preview-subject');
+        const bodyEl = document.getElementById('ai-preview-body');
+        const generateBtn = document.getElementById('ai-generate-btn');
+
+        const scenario = document.getElementById('ai-scenario')?.value.trim();
+        const department = document.getElementById('ai-dept')?.value;
+        const urgency = document.getElementById('ai-urgency')?.value;
+
+        if (!scenario) return;
+
+        generateBtn.disabled = true;
+        generateBtn.textContent = 'Generating... ⏳';
+
         try {
           const res = await apiFetch('/api/ai/generate-email', {
             method: 'POST',
-            body: JSON.stringify({
-              department: document.getElementById('aiDeptInput')?.value.trim() || 'General',
-              urgency: document.getElementById('aiUrgencyInput')?.value || 'Medium',
-              pretext: document.getElementById('aiScenarioInput')?.value.trim() || 'Security Update',
-              scenario: document.getElementById('aiScenarioInput')?.value.trim() || 'Security Update',
-            }),
+            body: JSON.stringify({ scenario, department, urgency, tone: 'Professional and Urgent' }),
           });
-          if (preview) {
+
+          const data = res.data || res;
+          const templateId = data.templateId;
+
+          if (preview && subjectEl && bodyEl) {
             preview.classList.remove('hidden');
-            preview.innerHTML = `
-              <div class="font-bold text-indigo-400">Subject: ${escapeHtml(res.subject || res.template?.subject || 'Generated Pretext')}</div>
-              <div class="text-slate-300 mt-1">${res.body_html || res.template?.body_html || ''}</div>
-            `;
+            subjectEl.textContent = `Subject: ${data.subject}`;
+            bodyEl.innerHTML = data.bodyHtml;
+
+            const useBtn = document.getElementById('use-ai-template-btn');
+            if (useBtn) {
+              useBtn.onclick = () => {
+                const campNameInput = document.getElementById('campNameInput');
+                const campDescInput = document.getElementById('campDescInput');
+                const campTemplateSelect = document.getElementById('campTemplateSelect');
+
+                if (campNameInput) campNameInput.value = `${scenario} Drill`;
+                if (campDescInput) campDescInput.value = `AI Generated Pretext: ${data.subject}`;
+
+                loadCampaignResources().then(() => {
+                  if (campTemplateSelect && templateId) {
+                    campTemplateSelect.value = String(templateId);
+                  }
+                });
+
+                showToast('Applied AI template to Campaign Launch form!');
+              };
+            }
           }
-          showToast('AI Pretext generated and saved to Templates!');
-          loadCampaignResources();
+          showToast('AI Pretext generated & saved to templates!');
         } catch (err) {
-          showToast(err.message, false);
+          showToast(err.message || 'Failed to generate AI email template', false);
+        } finally {
+          generateBtn.disabled = false;
+          generateBtn.textContent = 'Generate Lure ✨';
         }
       });
     }
 
-    // Quiz Management & Isolated Link Assignment
+    // Quiz Management & Assignment
     async function loadAdminQuizzes() {
       const selectEl = document.getElementById('assign-quiz-select');
-      const listEl = document.getElementById('adminQuizzesList') || document.getElementById('admin-quizzes-list');
+      const listEl = document.getElementById('adminQuizzesList');
       try {
         const res = await apiFetch('/api/quizzes');
         const quizzes = Array.isArray(res) ? res : (res.quizzes || []);
@@ -1415,7 +1282,7 @@
         }
         if (listEl) {
           listEl.innerHTML = quizzes.map((q) => `
-            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between items-center">
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between items-center hover:border-slate-700 transition">
               <div>
                 <div class="font-semibold text-white text-xs">${escapeHtml(q.title)}</div>
                 <div class="text-[11px] text-slate-400">Module: ${escapeHtml(q.module_title || q.title)} • Pass Score: ${q.pass_score}%</div>
@@ -1427,7 +1294,7 @@
       } catch {}
     }
 
-    const createQuizForm = document.getElementById('createQuizForm') || document.getElementById('create-quiz-form');
+    const createQuizForm = document.getElementById('createQuizForm');
     if (createQuizForm) {
       createQuizForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1435,18 +1302,18 @@
           await apiFetch('/api/quizzes/create', {
             method: 'POST',
             body: JSON.stringify({
-              module_title: (document.getElementById('newModTitle') || document.getElementById('new-mod-title'))?.value.trim(),
-              module_content: (document.getElementById('newModContent') || document.getElementById('new-mod-content'))?.value.trim(),
-              title: (document.getElementById('newQuizTitle') || document.getElementById('new-quiz-title'))?.value.trim(),
-              pass_score: Number((document.getElementById('newQuizPassScore') || document.getElementById('new-quiz-pass'))?.value) || 70,
+              module_title: document.getElementById('newModTitle')?.value.trim(),
+              module_content: document.getElementById('newModContent')?.value.trim(),
+              title: document.getElementById('newQuizTitle')?.value.trim(),
+              pass_score: Number(document.getElementById('newQuizPassScore')?.value) || 70,
               questions: [
                 {
-                  question: (document.getElementById('newQText') || document.getElementById('new-q-text'))?.value.trim(),
-                  option_a: (document.getElementById('newQOptA') || document.getElementById('new-q-a'))?.value.trim(),
-                  option_b: (document.getElementById('newQOptB') || document.getElementById('new-q-b'))?.value.trim(),
-                  option_c: (document.getElementById('newQOptC') || document.getElementById('new-q-c'))?.value.trim(),
-                  option_d: (document.getElementById('newQOptD') || document.getElementById('new-q-d'))?.value.trim(),
-                  correct_option: (document.getElementById('newQCorrect') || document.getElementById('new-q-correct'))?.value,
+                  question: document.getElementById('newQText')?.value.trim(),
+                  option_a: document.getElementById('newQOptA')?.value.trim(),
+                  option_b: document.getElementById('newQOptB')?.value.trim(),
+                  option_c: document.getElementById('newQOptC')?.value.trim(),
+                  option_d: document.getElementById('newQOptD')?.value.trim(),
+                  correct_option: document.getElementById('newQCorrect')?.value,
                 },
               ],
             }),
@@ -1454,7 +1321,6 @@
           showToast('New Training Module & Quiz published!');
           createQuizForm.reset();
           loadAdminQuizzes();
-          loadAuditLogs();
         } catch (err) {
           showToast(err.message, false);
         }
@@ -1465,13 +1331,19 @@
     if (assignQuizForm) {
       assignQuizForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const employee_id = document.getElementById('assign-emp-select')?.value;
-        const quiz_id = document.getElementById('assign-quiz-select')?.value;
+        const employeeId = document.getElementById('assign-emp-select')?.value;
+        const quizId = document.getElementById('assign-quiz-select')?.value;
         const previewBox = document.getElementById('assigned-link-preview');
+
+        if (!employeeId || !quizId) {
+          showToast('Please select both an employee and a quiz.', false);
+          return;
+        }
+
         try {
           const res = await apiFetch('/api/quizzes/assign', {
             method: 'POST',
-            body: JSON.stringify({ employee_id, quiz_id }),
+            body: JSON.stringify({ employee_id: Number(employeeId), quiz_id: Number(quizId) }),
           });
           showToast(res.message);
           if (previewBox && res.trainingPortalLink) {
@@ -1479,25 +1351,24 @@
             previewBox.innerHTML = `
               <div class="text-emerald-400 font-semibold">✅ Isolated Training Portal Link Dispatched:</div>
               <a href="${res.trainingPortalLink}" class="text-blue-400 underline break-all">${res.trainingPortalLink}</a>
-              <p class="text-[11px] text-slate-400 mt-1">Clicking this link clears any active Admin session and forces Employee login.</p>
+              <p class="text-[11px] text-slate-400 mt-1">Direct assessment link dispatched for this employee account.</p>
             `;
           }
-          loadAuditLogs();
         } catch (err) {
           showToast(err.message, false);
         }
       });
     }
 
-    // Cross-Department Vulnerability Matrix & AI Risk Assessment
+    // Cross-Department Matrix
     async function loadAnalytics() {
-      const deptContainer = document.getElementById('deptMatrixTableBody') || document.getElementById('dept-matrix-container');
+      const deptContainer = document.getElementById('deptMatrixTableBody');
       try {
         const depts = await apiFetch('/api/analytics/departments');
         const rows = Array.isArray(depts) ? depts : (depts.departments || depts.data || []);
         if (deptContainer) {
           deptContainer.innerHTML = rows.map((d) => `
-            <tr>
+            <tr class="hover:bg-slate-900/40 transition">
               <td class="p-3 font-semibold text-white">${escapeHtml(d.department)}</td>
               <td class="p-3">${d.totalTargeted ?? d.totalEmployees ?? d.total_targeted ?? d.total_employees ?? 0}</td>
               <td class="p-3 text-amber-400">${d.clickRate ?? d.totalClicked ?? 0}%</td>
@@ -1508,10 +1379,10 @@
       } catch {}
     }
 
-    const aiRiskBtn = document.getElementById('runAiRiskAnalysisBtn') || document.getElementById('run-ai-risk-btn');
+    const aiRiskBtn = document.getElementById('runAiRiskAnalysisBtn');
     if (aiRiskBtn) {
       aiRiskBtn.addEventListener('click', async () => {
-        const out = document.getElementById('aiRiskAnalysisBox') || document.getElementById('ai-risk-output');
+        const out = document.getElementById('aiRiskAnalysisBox');
         if (out) out.textContent = 'Running Gemini AI risk assessment...';
         try {
           const data = await apiFetch('/api/ai/risk-analysis');
@@ -1539,31 +1410,13 @@
     }
 
     // Paginated Audit Logs Explorer
-    let currentAuditPage = 1;
-    let totalAuditPages = 1;
-
-    async function loadAuditLogs(pageNum = currentAuditPage) {
-      const tbody = document.getElementById('auditLogsTableBody') || document.getElementById('audit-logs-tbody');
+    async function loadAuditLogs(pageNum = 1) {
+      const tbody = document.getElementById('auditLogsTableBody');
       if (!tbody) return;
 
-      const search = document.getElementById('audit-search-input')?.value.trim() || '';
-      const action = document.getElementById('audit-action-filter')?.value || 'ALL';
-      const role = document.getElementById('audit-role-filter')?.value || 'ALL';
-      const limit = Number(document.getElementById('audit-limit-select')?.value || 100);
-
       try {
-        const qs = new URLSearchParams({
-          page: String(pageNum),
-          limit: String(limit),
-          action,
-          role,
-          search,
-        });
-        const data = await apiFetch(`/api/audit-logs?${qs.toString()}`);
+        const data = await apiFetch(`/api/audit-logs?page=${pageNum}&limit=50`);
         const logs = Array.isArray(data) ? data : (data.logs || data.data || []);
-
-        currentAuditPage = data.page || data.pagination?.currentPage || 1;
-        totalAuditPages = data.totalPages || data.pagination?.totalPages || 1;
 
         if (!logs.length) {
           tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">No matching audit logs found.</td></tr>';
@@ -1571,7 +1424,7 @@
         }
 
         tbody.innerHTML = logs.map((l) => `
-          <tr class="hover:bg-slate-900/80">
+          <tr class="hover:bg-slate-900/80 transition">
             <td class="p-3.5 text-slate-400 whitespace-nowrap">${new Date(l.created_at).toLocaleString()}</td>
             <td class="p-3.5 text-slate-200">${escapeHtml(l.actor_email || (l.user_id ? `Admin #${l.user_id}` : 'System'))}</td>
             <td class="p-3.5"><span class="px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 font-semibold">${escapeHtml(l.action)}</span></td>
