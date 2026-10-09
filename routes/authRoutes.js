@@ -4,68 +4,76 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const authController = require('../controllers/authController');
 
-// Helper to issue JWT and redirect OAuth users with their role & onboarding status
-function handleOAuthCallbackRedirect(req, res) {
-  const user = req.user;
-  const payload = {
-    id: user.id,
-    employeeId: user.employeeId || user.id,
-    email: user.email,
-    role: user.role || 'Employee'
-  };
-
-  const token = jwt.sign(payload, process.env.JWT_SECRET || 'super_secret_key', {
-    expiresIn: '8h'
-  });
-
-  const encodedToken = encodeURIComponent(`Bearer ${token}`);
-  const encodedUser = encodeURIComponent(JSON.stringify(user));
-
-  return res.redirect(`/?oauth_token=${encodedToken}&oauth_user=${encodedUser}`);
-}
-
-// Standard credential routes
+// Standard Credential Authentication & Recovery
 router.post('/register', authController.register);
 router.post('/login', authController.login);
-
-// Password recovery routes
 router.post('/forgot-password', authController.forgotPassword);
 router.post('/reset-password', authController.resetPassword);
+router.post('/onboarding', authController.completeOnboarding);
 
-// OAuth Employee Department Selection (Onboarding)
-router.post(
-  '/oauth-onboarding',
+// Protected Verification Route
+router.get(
+  '/me',
   passport.authenticate('jwt', { session: false }),
-  authController.completeOAuthOnboarding
+  authController.getMe
 );
 
-// Google OAuth 2.0 Routes
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+// --- Google OAuth Routes ---
+router.get(
+  '/google',
+  passport.authenticate('google', { scope: ['profile', 'email'], session: false })
+);
+
 router.get(
   '/google/callback',
-  passport.authenticate('google', { session: false, failureRedirect: '/?oauth_error=true' }),
-  handleOAuthCallbackRedirect
+  passport.authenticate('google', { failureRedirect: '/login?error=oauth_failed', session: false }),
+  (req, res) => {
+    const sessionId = 'sess_' + crypto.randomBytes(16).toString('hex');
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role || 'Employee',
+        sessionId,
+      },
+      process.env.JWT_SECRET || 'super_secret_key',
+      { expiresIn: '8h' }
+    );
+
+    const redirectPath = req.user.role === 'Admin' ? '/admin' : '/employee';
+    res.redirect(`${redirectPath}?oauth_token=Bearer%20${token}&session_id=${sessionId}`);
+  }
 );
 
-// GitHub OAuth 2.0 Routes
-router.get('/github', passport.authenticate('github', { scope: ['user:email'], session: false }));
+// --- GitHub OAuth Routes ---
+router.get(
+  '/github',
+  passport.authenticate('github', { scope: ['user:email'], session: false })
+);
+
 router.get(
   '/github/callback',
-  passport.authenticate('github', { session: false, failureRedirect: '/?oauth_error=true' }),
-  handleOAuthCallbackRedirect
-);
-
-// Protected verification route
-router.get(
-  '/protected',
-  passport.authenticate('jwt', { session: false }),
+  passport.authenticate('github', { failureRedirect: '/login?error=oauth_failed', session: false }),
   (req, res) => {
-    res.status(200).json({
-      message: 'Access granted to protected resource.',
-      user: req.user
-    });
+    const sessionId = 'sess_' + crypto.randomBytes(16).toString('hex');
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role || 'Employee',
+        sessionId,
+      },
+      process.env.JWT_SECRET || 'super_secret_key',
+      { expiresIn: '8h' }
+    );
+
+    const redirectPath = req.user.role === 'Admin' ? '/admin' : '/employee';
+    res.redirect(`${redirectPath}?oauth_token=Bearer%20${token}&session_id=${sessionId}`);
   }
 );
 

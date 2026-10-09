@@ -1,1186 +1,1597 @@
+/* eslint-env browser */
 'use strict';
 
-// 1. APPLICATION STATE
-const STATE = {
-  token: localStorage.getItem('token') || '',
-  user: JSON.parse(localStorage.getItem('user') || 'null'),
-  resetToken: null,
-  activePage: 1,
-  chartInstance: null,
-  activeCampaignId: 1,
-  currentQuizId: null,
-  availableTemplates: [],
-  mcqQuestionCount: 0
-};
+(function () {
+  const page = document.body.getAttribute('data-page') || '';
+  const urlParams = new URLSearchParams(window.location.search);
 
-const LANDING_PAGE_LABELS = {
-  1: 'Office 365 Clone',
-  2: 'Google Workspace Clone',
-  3: 'Axis Bank NetBanking Clone',
-  4: 'Jio 5G SIM e-KYC Clone',
-  5: 'MrBreast YouTube Collab Clone'
-};
+  // =========================================================================
+  // 1. HELPER UTILITIES & AUTHENTICATION STATE MANAGEMENT
+  // =========================================================================
+  function getAuthToken() {
+    return localStorage.getItem('jwt') || localStorage.getItem('token') || null;
+  }
 
-// 2. PARSE QUERY STRINGS (OAUTH ROLE/ONBOARDING & RESET TOKEN)
-(function parseUrlCallbacks() {
-  const params = new URLSearchParams(window.location.search);
-  const oauthToken = params.get('oauth_token');
-  const oauthUserRaw = params.get('oauth_user');
+  function getAuthUser() {
+    try {
+      const raw = localStorage.getItem('auth_user') || localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
 
-  if (oauthToken) {
-    const formatted = oauthToken.startsWith('Bearer ') ? oauthToken : `Bearer ${oauthToken}`;
-    localStorage.setItem('token', formatted);
-    STATE.token = formatted;
+  function getSessionId() {
+    return localStorage.getItem('session_id') || getAuthUser()?.sessionId || null;
+  }
 
-    let parsedUser = { id: 1, name: 'OAuth User', email: '', role: 'Employee', approval_status: 'Pending', needsDepartment: true };
-    if (oauthUserRaw) {
-      try {
-        parsedUser = JSON.parse(oauthUserRaw);
-      } catch (e) {
-        console.error('Failed parsing oauth_user:', e);
-      }
+  function saveAuthSession(token, user, sessionId) {
+    if (!token) return;
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    localStorage.setItem('jwt', formattedToken);
+    localStorage.setItem('token', formattedToken);
+    if (user) {
+      localStorage.setItem('auth_user', JSON.stringify(user));
+      localStorage.setItem('user', JSON.stringify(user));
+    }
+    if (sessionId) {
+      localStorage.setItem('session_id', sessionId);
+    }
+  }
+
+  function clearAuthSession() {
+    localStorage.removeItem('jwt');
+    localStorage.removeItem('token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('user');
+    localStorage.removeItem('session_id');
+  }
+
+  function decodeJwtPayload(tokenStr) {
+    try {
+      if (!tokenStr) return null;
+      const clean = tokenStr.replace(/^Bearer\s+/i, '');
+      const parts = clean.split('.');
+      if (parts.length !== 3) return null;
+      return JSON.parse(atob(parts[1]));
+    } catch {
+      return null;
+    }
+  }
+
+  async function apiFetch(url, options = {}) {
+    const token = getAuthToken();
+    const headers = { ...(options.headers || {}) };
+    if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (token) {
+      headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    }
+    const response = await fetch(url, { ...options, headers });
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json() : await response.text();
+    if (!response.ok) {
+      const errorMsg = (data && data.error) || (data && data.message) || `Request failed (${response.status})`;
+      const err = new Error(errorMsg);
+      err.status = response.status;
+      err.data = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // Intercept OAuth Redirect Callbacks Across Any Entrypoint
+  const incomingOAuthToken = urlParams.get('oauth_token');
+  const incomingSessionId = urlParams.get('session_id');
+  if (incomingOAuthToken) {
+    const payload = decodeJwtPayload(incomingOAuthToken);
+    saveAuthSession(
+      incomingOAuthToken,
+      payload
+        ? {
+            id: payload.id,
+            name: payload.name || 'OAuth User',
+            email: payload.email,
+            role: payload.role || 'Employee',
+            sessionId: incomingSessionId || payload.sessionId,
+          }
+        : null,
+      incomingSessionId || payload?.sessionId
+    );
+    urlParams.delete('oauth_token');
+    urlParams.delete('session_id');
+    const cleanSearch = urlParams.toString();
+    window.history.replaceState({}, document.title, window.location.pathname + (cleanSearch ? `?${cleanSearch}` : ''));
+  }
+
+  // Global Sign-Out Action Handler
+  const logoutBtn = document.getElementById('logout-btn') || 
+                    document.getElementById('logoutBtn') || 
+                    document.getElementById('adminLogoutBtn') || 
+                    document.getElementById('empLogoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      const currentRole = getAuthUser()?.role;
+      clearAuthSession();
+      window.location.href = currentRole === 'Admin' ? '/admin-login' : '/login';
+    });
+  }
+
+  // =========================================================================
+  // PAGE 1: /login (Unified & Employee Training Portal Login)
+  // =========================================================================
+  if (page === 'login' || (!page && window.location.pathname.includes('/login'))) {
+    const isolationBanner = document.getElementById('isolation-banner');
+    const reason = urlParams.get('isolation_reason');
+    const targetEmail = urlParams.get('target_email');
+    const assignedQuiz = urlParams.get('assigned_quiz');
+
+    if (reason === 'admin_session_cleared' && isolationBanner) {
+      isolationBanner.classList.remove('hidden');
+      isolationBanner.innerHTML = `
+        <strong>🔒 Security Session Isolation Active:</strong> Your active Administrator session was automatically cleared because you clicked an Employee Training Portal link. Please sign in with the assigned Employee account (<strong>${escapeHtml(targetEmail || 'Employee')}</strong>) to take the quiz.
+      `;
     }
 
-    localStorage.setItem('user', JSON.stringify(parsedUser));
-    STATE.user = parsedUser;
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-
-  const resetToken = params.get('reset_token') || params.get('token');
-  if (resetToken && !oauthToken) {
-    STATE.resetToken = resetToken;
-    window.history.replaceState({}, document.title, window.location.pathname);
-  }
-})();
-
-// 3. API FETCH WRAPPER
-async function apiFetch(endpoint, options = {}) {
-  const headers = options.headers || {};
-  if (STATE.token) {
-    headers['Authorization'] = STATE.token.startsWith('Bearer ') ? STATE.token : `Bearer ${STATE.token}`;
-  }
-  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  try {
-    const response = await fetch(endpoint, { ...options, headers });
-    if (response.status === 401 && STATE.token) {
-      showToast('Session expired. Please sign in again.');
-      logoutSession();
+    const emailInput = document.getElementById('login-email') || document.getElementById('loginEmail') || document.getElementById('loginEmailInput');
+    if (targetEmail && emailInput) {
+      emailInput.value = targetEmail;
     }
-    return response;
-  } catch (err) {
-    console.error(`API error on ${endpoint}:`, err);
-    return null;
-  }
-}
 
-function showToast(msg) {
-  const toast = document.getElementById('globalToast');
-  const text = document.getElementById('globalToastText');
-  if (!toast || !text) return;
-  text.textContent = msg;
-  toast.classList.remove('hidden');
-  setTimeout(() => toast.classList.add('hidden'), 4500);
-}
+    const toggleForgotBtn = document.getElementById('toggle-forgot-btn') || document.getElementById('toggleForgotDrawerBtn');
+    const cancelForgotBtn = document.getElementById('cancel-forgot-btn');
+    const forgotForm = document.getElementById('forgot-form') || document.getElementById('forgotPasswordForm');
 
-// 4. ROUTER
-document.addEventListener('DOMContentLoaded', () => {
-  if (window.lucide) lucide.createIcons();
-  bindAllEvents();
-  resetDynamicMcqBuilder();
-  routeInitialView();
-});
-
-function showMainView(viewId) {
-  ['viewUserLogin', 'viewAdminLogin', 'viewResetPassword', 'viewOAuthOnboarding', 'viewAdminShell', 'viewEmployeePortal'].forEach(id => {
-    document.getElementById(id)?.classList.add('hidden');
-  });
-  document.getElementById(viewId)?.classList.remove('hidden');
-}
-
-function routeInitialView() {
-  if (STATE.resetToken) {
-    showMainView('viewResetPassword');
-    return;
-  }
-
-  if (STATE.token && STATE.user) {
-    if (STATE.user.role === 'Employee') {
-      if (STATE.user.needsDepartment || STATE.user.department === 'Unassigned' || STATE.user.approval_status === 'Pending') {
-        showMainView('viewOAuthOnboarding');
-        renderOAuthOnboardingView();
-        return;
-      }
-
-      showMainView('viewEmployeePortal');
-      loadEmployeePortal();
-    } else {
-      showMainView('viewAdminShell');
-      document.getElementById('adminSidebarName').textContent = STATE.user.name || 'Administrator';
-      document.getElementById('adminSidebarEmail').textContent = STATE.user.email || 'omjalela4@gmail.com';
-      initAdminWorkspace();
+    if (toggleForgotBtn && forgotForm) {
+      toggleForgotBtn.addEventListener('click', () => forgotForm.classList.toggle('hidden'));
     }
-    return;
-  }
+    if (cancelForgotBtn && forgotForm) {
+      cancelForgotBtn.addEventListener('click', () => forgotForm.classList.add('hidden'));
+    }
 
-  showMainView('viewUserLogin');
-}
+    const alertBox = document.getElementById('auth-alert') || document.getElementById('loginAlert') || document.getElementById('userLoginFeedback');
+    function showLoginAlert(msg, isError = true) {
+      if (!alertBox) return;
+      alertBox.className = `mb-4 p-3 rounded-lg text-xs font-medium ${
+        isError
+          ? 'bg-rose-500/10 border border-rose-500/40 text-rose-300'
+          : 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-300'
+      }`;
+      alertBox.textContent = msg;
+      alertBox.classList.remove('hidden');
+    }
 
-function renderOAuthOnboardingView() {
-  document.getElementById('oauthEmpName').value = STATE.user?.name || '';
-  document.getElementById('oauthEmpEmail').value = STATE.user?.email || '';
+    const loginForm = document.getElementById('login-form') || document.getElementById('loginForm') || document.getElementById('userLoginForm');
+    if (loginForm) {
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const emailEl = document.getElementById('login-email') || document.getElementById('loginEmail') || document.getElementById('loginEmailInput');
+        const passEl = document.getElementById('login-password') || document.getElementById('loginPassword') || document.getElementById('loginPasswordInput');
+        const email = emailEl?.value.trim();
+        const password = passEl?.value;
 
-  const form = document.getElementById('oauthOnboardingForm');
-  const pendingNotice = document.getElementById('oauthPendingNotice');
+        try {
+          const portalType = assignedQuiz || urlParams.get('portal') === 'employee' ? 'employee' : undefined;
+          const res = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, portalType, loginType: portalType }),
+          });
 
-  if (STATE.user?.department && STATE.user.department !== 'Unassigned' && STATE.user?.approval_status === 'Pending') {
-    form.classList.add('hidden');
-    pendingNotice.classList.remove('hidden');
-  } else {
-    form.classList.remove('hidden');
-    pendingNotice.classList.add('hidden');
-  }
-}
+          saveAuthSession(res.token, res.user, res.sessionId);
 
-function logoutSession() {
-  localStorage.removeItem('token');
-  localStorage.removeItem('user');
-  STATE.token = '';
-  STATE.user = null;
-  showMainView('viewUserLogin');
-}
-
-// 5. EVENT BINDINGS
-function bindAllEvents() {
-  document.getElementById('goToAdminLoginBtn').onclick = () => showMainView('viewAdminLogin');
-  document.getElementById('backToUserLoginBtn').onclick = () => showMainView('viewUserLogin');
-  document.getElementById('cancelResetBtn').onclick = () => { STATE.resetToken = null; showMainView('viewUserLogin'); };
-  document.getElementById('toggleForgotDrawerBtn').onclick = () => {
-    document.getElementById('forgotPasswordForm').classList.toggle('hidden');
-  };
-
-  document.getElementById('userLoginForm').onsubmit = (e) => handleLoginSubmit(e, 'user');
-  document.getElementById('adminLoginForm').onsubmit = (e) => handleLoginSubmit(e, 'admin');
-  document.getElementById('forgotPasswordForm').onsubmit = handleForgotPasswordSubmit;
-  document.getElementById('resetPasswordForm').onsubmit = handleResetPasswordSubmit;
-  document.getElementById('oauthOnboardingForm').onsubmit = handleOAuthOnboardingSubmit;
-
-  document.getElementById('adminLogoutBtn').onclick = logoutSession;
-  document.getElementById('empLogoutBtn').onclick = logoutSession;
-  document.getElementById('oauthOnboardingLogoutBtn').onclick = logoutSession;
-
-  document.querySelectorAll('.admin-nav-btn').forEach(btn => {
-    btn.onclick = () => {
-      const targetPage = btn.getAttribute('data-admin-nav');
-      document.querySelectorAll('.admin-page').forEach(p => p.classList.add('hidden'));
-      document.getElementById(targetPage)?.classList.remove('hidden');
-
-      document.querySelectorAll('.admin-nav-btn').forEach(b => {
-        b.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl text-slate-300 hover:bg-slate-800 font-medium flex items-center justify-between transition text-left';
+          if (res.user.role === 'Employee' && assignedQuiz) {
+            window.location.href = `/employee?assigned_quiz=${encodeURIComponent(assignedQuiz)}`;
+            return;
+          }
+          window.location.href = res.redirectUrl || (res.user.role === 'Admin' ? '/admin' : '/employee');
+        } catch (err) {
+          showLoginAlert(err.message, true);
+        }
       });
-      btn.className = 'admin-nav-btn w-full px-4 py-3 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-between transition text-left';
+    }
 
-      if (targetPage === 'pageAwareness') loadAdminAwarenessPage();
-      if (targetPage === 'pageCampaigns') loadCampaignsList();
-      if (targetPage === 'pageEmployees') {
-        loadPendingOAuthEmployees();
-        loadTargetRoster(1);
-      }
+    if (forgotForm) {
+      forgotForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const forgotEmailEl = document.getElementById('forgot-email') || document.getElementById('forgotEmailInput');
+        const email = forgotEmailEl ? forgotEmailEl.value.trim() : '';
+        try {
+          const res = await apiFetch('/api/auth/forgot-password', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+          });
+          showLoginAlert(res.message, false);
+          forgotForm.classList.add('hidden');
+        } catch (err) {
+          showLoginAlert(err.message, true);
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // PAGE 2: /admin-login (Dedicated Admin SOC Authentication Portal)
+  // =========================================================================
+  if (page === 'admin-login' || window.location.pathname.includes('/admin-login')) {
+    const alertBox = document.getElementById('auth-alert') || document.getElementById('adminAlert') || document.getElementById('adminLoginFeedback');
+    const form = document.getElementById('admin-login-form') || document.getElementById('adminLoginForm');
+
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const emailEl = document.getElementById('admin-email') || document.getElementById('adminEmailInput');
+        const passEl = document.getElementById('admin-password') || document.getElementById('adminPasswordInput');
+        const email = emailEl ? emailEl.value.trim() : '';
+        const password = passEl ? passEl.value : '';
+
+        try {
+          const res = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password, portalType: 'admin', loginType: 'admin' }),
+          });
+          saveAuthSession(res.token, res.user, res.sessionId);
+          window.location.href = '/admin';
+        } catch (err) {
+          if (alertBox) {
+            alertBox.className = 'mb-4 p-3 rounded-lg text-xs font-medium bg-rose-500/10 border border-rose-500/40 text-rose-300';
+            alertBox.textContent = err.message;
+            alertBox.classList.remove('hidden');
+          }
+        }
+      });
+    }
+  }
+
+  // =========================================================================
+  // PAGE 3: /onboarding (Department Selection & Verification Waiting Room)
+  // =========================================================================
+  if (page === 'onboarding' || window.location.pathname.includes('/onboarding')) {
+    const token = getAuthToken();
+    if (!token) {
+      window.location.href = '/login';
+      return;
+    }
+
+    const user = getAuthUser();
+    const nameEl = document.getElementById('onboarding-name');
+    const sessEl = document.getElementById('onboarding-session-badge');
+    if (nameEl && user) nameEl.textContent = user.name || user.email;
+    if (sessEl) sessEl.textContent = getSessionId() || 'sess_active';
+
+    const alertBox = document.getElementById('onboarding-alert');
+    const showOnboardingMsg = (msg, ok = true) => {
+      if (!alertBox) return;
+      alertBox.className = `mb-4 p-3 rounded-lg text-xs font-medium ${
+        ok ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300' : 'bg-amber-500/10 border border-amber-500/30 text-amber-300'
+      }`;
+      alertBox.textContent = msg;
+      alertBox.classList.remove('hidden');
     };
-  });
 
-  document.getElementById('analyticsCampaignSelect').onchange = (e) => {
-    loadCampaignDashboardMetrics(parseInt(e.target.value, 10));
-  };
+    const form = document.getElementById('onboarding-form');
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const department = document.getElementById('onboarding-dept')?.value;
+        try {
+          const res = await apiFetch('/api/auth/onboarding', {
+            method: 'POST',
+            body: JSON.stringify({ department }),
+          });
+          showOnboardingMsg(res.message, true);
+        } catch (err) {
+          showOnboardingMsg(err.message, false);
+        }
+      });
+    }
 
-  document.getElementById('runAiRiskAnalysisBtn').onclick = handleRunAiRiskAnalysis;
-
-  document.getElementById('openAddEmployeeModalBtn').onclick = () => document.getElementById('addEmployeeModal').classList.remove('hidden');
-  document.getElementById('closeAddEmployeeModalBtn').onclick = () => document.getElementById('addEmployeeModal').classList.add('hidden');
-  document.getElementById('addEmployeeForm').onsubmit = handleAddEmployee;
-
-  document.getElementById('openCsvModalBtn').onclick = () => document.getElementById('csvModal').classList.remove('hidden');
-  document.getElementById('closeCsvModalBtn').onclick = () => document.getElementById('csvModal').classList.add('hidden');
-  document.getElementById('csvUploadForm').onsubmit = handleCsvUpload;
-
-  document.getElementById('openNewCampaignModalBtn').onclick = () => {
-    populateTemplateDropdown();
-    document.getElementById('newCampaignModal').classList.remove('hidden');
-  };
-  document.getElementById('closeNewCampaignModalBtn').onclick = () => document.getElementById('newCampaignModal').classList.add('hidden');
-  document.getElementById('createCampaignForm').onsubmit = handleCreateCampaign;
-
-  document.getElementById('openAiModalBtn').onclick = () => document.getElementById('aiModal').classList.remove('hidden');
-  document.getElementById('closeAiModalBtn').onclick = () => document.getElementById('aiModal').classList.add('hidden');
-  document.getElementById('triggerAiGenerationBtn').onclick = handleAiGeneration;
-
-  document.getElementById('assignTargetType').onchange = (e) => {
-    const val = e.target.value;
-    document.getElementById('assignEmployeeBox').classList.toggle('hidden', val !== 'employee');
-    document.getElementById('assignDepartmentBox').classList.toggle('hidden', val !== 'department');
-  };
-  document.getElementById('assignQuizForm').onsubmit = handleAssignQuiz;
-  document.getElementById('addAnotherMcqBtn').onclick = () => appendMcqQuestionBlock();
-  document.getElementById('createQuizForm').onsubmit = handleCreateQuizModule;
-
-  document.getElementById('closeQuizModalBtn').onclick = () => document.getElementById('quizModal').classList.add('hidden');
-  document.getElementById('submitAssessmentBtn').onclick = submitActiveQuiz;
-
-  document.getElementById('rosterSearchInput').oninput = debounce(() => loadTargetRoster(1), 350);
-  document.getElementById('rosterRiskFilter').onchange = () => loadTargetRoster(1);
-  document.getElementById('rosterPrevBtn').onclick = () => { if (STATE.activePage > 1) loadTargetRoster(STATE.activePage - 1); };
-  document.getElementById('rosterNextBtn').onclick = () => loadTargetRoster(STATE.activePage + 1);
-}
-
-// 6. AUTHENTICATION & OAUTH ONBOARDING HANDLERS
-async function handleOAuthOnboardingSubmit(e) {
-  e.preventDefault();
-  const name = document.getElementById('oauthEmpName').value.trim();
-  const department = document.getElementById('oauthEmpDept').value;
-
-  if (!department) return alert('Please select your department.');
-
-  const res = await apiFetch('/api/auth/oauth-onboarding', {
-    method: 'POST',
-    body: JSON.stringify({ name, department })
-  });
-
-  if (res && res.ok) {
-    const data = await res.json();
-    STATE.user = { ...STATE.user, ...data.employee, needsDepartment: false, approval_status: 'Pending' };
-    localStorage.setItem('user', JSON.stringify(STATE.user));
-    showToast('Department saved! Sent to Admin for approval.');
-    renderOAuthOnboardingView();
-  } else {
-    alert('Failed to submit department selection.');
-  }
-}
-
-async function handleLoginSubmit(e, mode) {
-  e.preventDefault();
-  const email = document.getElementById(mode === 'admin' ? 'adminEmailInput' : 'loginEmailInput').value.trim();
-  const password = document.getElementById(mode === 'admin' ? 'adminPasswordInput' : 'loginPasswordInput').value;
-  const feedback = document.getElementById(mode === 'admin' ? 'adminLoginFeedback' : 'userLoginFeedback');
-
-  feedback.classList.remove('hidden');
-  feedback.className = 'p-3 rounded-xl text-sm font-medium bg-blue-950/50 text-blue-300 border border-blue-500/30';
-  feedback.textContent = 'Verifying credentials...';
-
-  const res = await apiFetch('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password, loginType: mode })
-  });
-
-  if (!res) return;
-  const data = await res.json();
-
-  if (res.ok && data.token) {
-    STATE.token = data.token;
-    STATE.user = data.user;
-    localStorage.setItem('token', data.token);
-    localStorage.setItem('user', JSON.stringify(data.user));
-    feedback.classList.add('hidden');
-    routeInitialView();
-  } else {
-    feedback.className = 'p-3 rounded-xl text-sm font-medium bg-rose-950/50 text-rose-300 border border-rose-500/30';
-    feedback.textContent = data.message || 'Authentication failed.';
-  }
-}
-
-async function handleForgotPasswordSubmit(e) {
-  e.preventDefault();
-  const email = document.getElementById('forgotEmailInput').value.trim();
-  const feedback = document.getElementById('forgotFeedback');
-  const btn = document.getElementById('forgotSubmitBtn');
-
-  btn.disabled = true;
-  feedback.classList.remove('hidden');
-  feedback.className = 'p-3 rounded-xl text-xs font-medium bg-blue-950/50 text-blue-300 border border-blue-500/30';
-  feedback.textContent = 'Dispatching recovery link via Gmail...';
-
-  const res = await apiFetch('/api/auth/forgot-password', {
-    method: 'POST',
-    body: JSON.stringify({ email })
-  });
-  btn.disabled = false;
-
-  if (res && res.ok) {
-    const data = await res.json();
-    feedback.className = 'p-3 rounded-xl text-xs font-medium bg-emerald-950/50 text-emerald-300 border border-emerald-500/30';
-    feedback.textContent = data.message || 'Recovery email sent! Check your Gmail.';
-  } else {
-    feedback.className = 'p-3 rounded-xl text-xs font-medium bg-rose-950/50 text-rose-300 border border-rose-500/30';
-    feedback.textContent = 'Failed to dispatch recovery email.';
-  }
-}
-
-async function handleResetPasswordSubmit(e) {
-  e.preventDefault();
-  const newPassword = document.getElementById('newPasswordInput').value;
-  const confirmPassword = document.getElementById('confirmPasswordInput').value;
-  const feedback = document.getElementById('resetPasswordFeedback');
-
-  feedback.classList.remove('hidden');
-  if (newPassword !== confirmPassword) {
-    feedback.className = 'p-3 rounded-xl text-sm font-medium bg-rose-950/50 text-rose-300 border border-rose-500/30';
-    feedback.textContent = 'Passwords do not match.';
-    return;
+    const checkBtn = document.getElementById('onboarding-check-btn');
+    if (checkBtn) {
+      checkBtn.addEventListener('click', async () => {
+        try {
+          const data = await apiFetch('/api/auth/me');
+          if (data.user && data.user.approval_status === 'Approved') {
+            saveAuthSession(getAuthToken(), data.user, data.sessionId || getSessionId());
+            window.location.href = '/employee';
+          } else {
+            showOnboardingMsg('Your profile is still awaiting Administrator approval.', false);
+          }
+        } catch (err) {
+          showOnboardingMsg(err.message, false);
+        }
+      });
+    }
   }
 
-  const res = await apiFetch('/api/auth/reset-password', {
-    method: 'POST',
-    body: JSON.stringify({ token: STATE.resetToken, newPassword })
-  });
+  // =========================================================================
+  // PAGE 4: /reset-password (Secure Password Recovery Action)
+  // =========================================================================
+  if (page === 'reset-password' || window.location.pathname.includes('/reset-password')) {
+    const resetToken = urlParams.get('token');
+    const alertBox = document.getElementById('reset-alert') || document.getElementById('resetPasswordFeedback');
+    const form = document.getElementById('reset-password-form') || document.getElementById('resetPasswordForm');
 
-  if (res && res.ok) {
-    showToast('Password updated! You can now sign in.');
-    STATE.resetToken = null;
-    showMainView('viewUserLogin');
-  } else {
-    const err = res ? await res.json() : {};
-    feedback.className = 'p-3 rounded-xl text-sm font-medium bg-rose-950/50 text-rose-300 border border-rose-500/30';
-    feedback.textContent = err.message || 'Invalid or expired reset token.';
-  }
-}
-
-// 7. ADMIN WORKSPACE & ANALYTICS
-async function initAdminWorkspace() {
-  await loadTemplates();
-  await loadCampaignsList();
-  await loadPendingOAuthEmployees();
-  await loadTargetRoster(1);
-  await loadTemporalHeatmap();
-  await loadDepartmentMatrix();
-}
-
-async function loadTemplates() {
-  const res = await apiFetch('/api/templates');
-  if (res && res.ok) {
-    const data = await res.json();
-    STATE.availableTemplates = data.data || data.templates || [];
-  }
-}
-
-function populateTemplateDropdown(selectedId = null) {
-  const select = document.getElementById('campTemplateSelect');
-  if (!select) return;
-  if (STATE.availableTemplates.length === 0) {
-    select.innerHTML = '<option value="1">#1: Corporate Security Alert</option>';
-    return;
-  }
-  select.innerHTML = STATE.availableTemplates.map(t =>
-    `<option value="${t.id}" ${selectedId === t.id ? 'selected' : ''}>#${t.id}: ${escapeHtml(t.name || t.subject)}</option>`
-  ).join('');
-}
-
-async function loadCampaignDashboardMetrics(campaignId) {
-  if (!campaignId) return;
-  STATE.activeCampaignId = campaignId;
-
-  const tokenParam = encodeURIComponent(STATE.token);
-  document.getElementById('exportCsvLink').href = `/api/reports/campaign/${campaignId}/csv?token=${tokenParam}`;
-  document.getElementById('exportPdfLink').href = `/api/reports/campaign/${campaignId}/pdf?token=${tokenParam}`;
-
-  const res = await apiFetch(`/api/reports/campaign/${campaignId}`);
-  if (!res || !res.ok) {
-    renderFunnelChart([0, 0, 0, 0]);
-    return;
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const newPassword = document.getElementById('new-password')?.value || document.getElementById('newPasswordInput')?.value;
+        try {
+          const res = await apiFetch('/api/auth/reset-password', {
+            method: 'POST',
+            body: JSON.stringify({ token: resetToken, newPassword }),
+          });
+          if (alertBox) {
+            alertBox.className = 'mb-4 p-3 rounded-lg text-xs bg-emerald-500/10 border border-emerald-500/40 text-emerald-300';
+            alertBox.textContent = res.message;
+            alertBox.classList.remove('hidden');
+          }
+          setTimeout(() => {
+            window.location.href = '/login';
+          }, 1500);
+        } catch (err) {
+          if (alertBox) {
+            alertBox.className = 'mb-4 p-3 rounded-lg text-xs bg-rose-500/10 border border-rose-500/40 text-rose-300';
+            alertBox.textContent = err.message;
+            alertBox.classList.remove('hidden');
+          }
+        }
+      });
+    }
   }
 
-  const payload = await res.json();
-  const data = payload.data || payload;
-  const totals = data.metrics || data.totals || { totalRecipients: 0, totalSent: 0, clicked: 0, compromised: 0 };
-  const rates = data.rates || { clickRate: 0, compromiseRate: 0 };
+  // =========================================================================
+  // PAGE 5: /employee (Isolated Portal, Assigned-Only Quizzes & Awareness Quotes)
+  // =========================================================================
+  if (page === 'employee' || window.location.pathname.includes('/employee')) {
+    const token = getAuthToken();
+    const assignedQuizParam = urlParams.get('assigned_quiz');
+    const targetEmailParam = urlParams.get('target_email');
 
-  const sent = totals.totalSent ?? totals.sent ?? 0;
-  const delivered = totals.delivered ?? sent;
-  const clicked = totals.clicked ?? 0;
-  const compromised = totals.compromised ?? 0;
+    if (!token) {
+      const redirectParams = new URLSearchParams();
+      redirectParams.set('portal', 'employee');
+      if (assignedQuizParam) redirectParams.set('assigned_quiz', assignedQuizParam);
+      if (targetEmailParam) redirectParams.set('target_email', targetEmailParam);
+      window.location.replace(`/login?${redirectParams.toString()}`);
+      return;
+    }
 
-  document.getElementById('funnelActiveCampaignLabel').textContent = `Campaign #${campaignId}: ${data.campaign?.name || data.name || 'Active Drill'}`;
-  document.getElementById('metricTotalSent').textContent = sent;
-  document.getElementById('metricTotalClicked').textContent = clicked;
-  document.getElementById('metricClickRate').textContent = `${rates.clickRate}%`;
-  document.getElementById('metricTotalCompromised').textContent = compromised;
-  document.getElementById('metricCompromiseRate').textContent = `${rates.compromiseRate}%`;
+    const greetingEl = document.getElementById('emp-portal-greeting') || document.getElementById('empGreeting') || document.getElementById('empPortalName');
+    const sessionEl = document.getElementById('emp-session-id') || document.getElementById('empSessionId');
+    const riskEl = document.getElementById('emp-portal-risk') || document.getElementById('empRiskBadge') || document.getElementById('empContextRisk');
+    const deptEl = document.getElementById('empContextDept');
 
-  renderFunnelChart([sent, delivered, clicked, compromised]);
-}
+    // -------------------------------------------------------------------------
+    // Rotating Awareness Quotes Engine (5 Distinct Tiers)
+    // -------------------------------------------------------------------------
+    const undeterminedQuotes = [
+      {
+        tag: 'Welcome to Security Training',
+        quote: 'Welcome to the enterprise awareness program! Read through our 5 study modules below to learn how modern phishing drills operate.',
+      },
+      {
+        tag: 'Baseline Awareness Advice',
+        quote: 'Legitimate organizations will never demand your passwords, PINs, or emergency gift card transfers via unsolicited emails.',
+      },
+      {
+        tag: 'Reporting Best Practice',
+        quote: 'Spot something fishy? Report unexpected lures to your security operations team to protect colleagues across your organization.',
+      }
+    ];
 
-function renderFunnelChart(series = [0, 0, 0, 0]) {
-  const canvas = document.getElementById('campaignFunnelChart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  if (STATE.chartInstance) STATE.chartInstance.destroy();
+    const critical100Quotes = [
+      {
+        tag: 'Critical Compromise Alert (100% Risk)',
+        quote: 'Account compromised: Credentials were submitted during a recent drill. Review mandatory awareness modules immediately.',
+      },
+      {
+        tag: 'Account Security Advisory',
+        quote: 'Credentials submitted on external forms can compromise corporate infrastructure. Complete your assigned quizzes to reset your tier.',
+      },
+      {
+        tag: 'Immediate Remediation Guidance',
+        quote: 'Never enter your corporate network credentials into external forms or unverified third-party sign-in screens.',
+      }
+    ];
 
-  const maxVal = Math.max(...series, 5);
-  STATE.chartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels: ['Sent', 'Delivered', 'Clicked', 'Compromised'],
-      datasets: [{
-        data: series,
-        backgroundColor: ['#475569', '#3b82f6', '#f59e0b', '#ef4444'],
-        borderRadius: 8,
-        barPercentage: 0.55
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        y: { min: 0, suggestedMax: maxVal, grid: { color: '#1e293b' }, ticks: { color: '#94a3b8', stepSize: 1, precision: 0 } },
-        x: { grid: { display: false }, ticks: { color: '#e2e8f0', font: { size: 13, weight: 'bold' } } }
+    const high40Quotes = [
+      {
+        tag: 'High Risk Notice (40% Risk)',
+        quote: 'Your risk score is getting higher — stay safe, stay away from any sketchy links, your account will thank you!',
+      },
+      {
+        tag: 'Link Safety Warning',
+        quote: 'You clicked a suspicious link in a recent exercise. Always verify the sender domain before interacting with hyperlinks.',
+      },
+      {
+        tag: 'Domain Inspection Tip',
+        quote: 'Inspect domain spelling carefully. Attackers frequently use typosquatting or subtle hyphenated brand lookalikes.',
+      }
+    ];
+
+    const low15Quotes = [
+      {
+        tag: 'Low Risk Reminder (15% Risk)',
+        quote: 'You opened a simulated email. Good discipline avoiding the link—always cross-check urgent requests before taking action.',
+      },
+      {
+        tag: 'Sender Masking Notice',
+        quote: 'Check the actual sender address, not just the display name. Attackers often mask their true email address.',
+      }
+    ];
+
+    const perfect0Quotes = [
+      {
+        tag: 'Perfect Security Posture (0% Risk)',
+        quote: 'Flawless defense! No clicks, no credential drops, and no compromises detected. Keep scrutinizing incoming messages.',
+      },
+      {
+        tag: 'Exemplary Defense',
+        quote: 'Your diligence protects the enterprise. Continue verifying unsolicited attachments and unusual urgent requests.',
+      }
+    ];
+
+    let quoteIndex = 0;
+    let activeEmployeeRiskTier = 'UNDETERMINED';
+
+    function updateAwarenessQuote(riskTier) {
+      if (riskTier) activeEmployeeRiskTier = riskTier;
+      const r = String(activeEmployeeRiskTier || '');
+      let quotePool = perfect0Quotes;
+      let badgeStyle = 'bg-cyan-500/10 border-cyan-500/30 text-cyan-300';
+      let tagStyle = 'bg-cyan-500/20 text-cyan-300';
+      let icon = '🛡️';
+
+      if (r.toUpperCase().includes('UNDETERMINED')) {
+        quotePool = undeterminedQuotes;
+        badgeStyle = 'bg-slate-800/80 border-slate-700 text-slate-300';
+        tagStyle = 'bg-slate-700 text-slate-200 font-bold';
+        icon = '👋';
+      } else if (r.includes('100%') || r.includes('CRITICAL')) {
+        quotePool = critical100Quotes;
+        badgeStyle = 'bg-rose-500/15 border-rose-500/50 text-rose-300';
+        tagStyle = 'bg-rose-500/25 text-rose-200 font-bold';
+        icon = '🚨';
+      } else if (r.includes('40%') || r.includes('High')) {
+        quotePool = high40Quotes;
+        badgeStyle = 'bg-amber-500/15 border-amber-500/40 text-amber-300';
+        tagStyle = 'bg-amber-500/25 text-amber-200 font-bold';
+        icon = '⚠️';
+      } else if (r.includes('15%') || r.includes('Low')) {
+        quotePool = low15Quotes;
+        badgeStyle = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300';
+        tagStyle = 'bg-emerald-500/20 text-emerald-300';
+        icon = '🔍';
+      }
+
+      const current = quotePool[quoteIndex % quotePool.length];
+      const banner = document.getElementById('awareness-quote-banner') || document.getElementById('awarenessQuoteBanner');
+      const tagEl = document.getElementById('awareness-quote-tag') || document.getElementById('awarenessQuoteTag');
+      const textEl = document.getElementById('awareness-quote-text') || document.getElementById('awarenessQuote');
+      const iconEl = document.getElementById('awareness-quote-icon');
+
+      if (banner && tagEl && textEl) {
+        banner.className = `p-4 rounded-2xl border transition-all flex items-center justify-between gap-4 ${badgeStyle}`;
+        tagEl.className = `text-[10px] uppercase tracking-wider px-2 py-0.5 rounded ${tagStyle}`;
+        tagEl.textContent = current.tag;
+        textEl.textContent = `"${current.quote}"`;
+        if (iconEl) iconEl.textContent = icon;
+      } else if (textEl) {
+        textEl.textContent = current.quote;
       }
     }
-  });
-}
 
-async function loadTemporalHeatmap() {
-  const container = document.getElementById('heatmapGrid');
-  if (!container) return;
-  container.innerHTML = '';
-
-  const lookup = {};
-  const res = await apiFetch('/api/analytics/heatmap');
-  if (res && res.ok) {
-    const payload = await res.json();
-    (payload.data || []).forEach(item => {
-      const d = item.dayNumber ?? item.day_of_week;
-      const h = item.hourOfDay ?? item.hour;
-      const c = item.totalEvents ?? item.event_count ?? 0;
-      lookup[`${d}-${h}`] = (lookup[`${d}-${h}`] || 0) + c;
-    });
-  }
-
-  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  for (let d = 1; d <= 7; d++) {
-    for (let h = 0; h < 24; h++) {
-      const count = lookup[`${d}-${h}`] || 0;
-      const cell = document.createElement('div');
-      const color = count === 0 ? 'bg-slate-800/90 border border-slate-800' : (count < 3 ? 'bg-blue-950 border border-blue-800' : (count < 5 ? 'bg-blue-600' : 'bg-rose-500'));
-      cell.className = `h-3.5 rounded-sm ${color} hover:ring-1 hover:ring-white transition cursor-pointer`;
-      cell.title = `${days[d - 1]} ${String(h).padStart(2, '0')}:00 — ${count} interaction(s)`;
-      container.appendChild(cell);
-    }
-  }
-}
-
-async function loadDepartmentMatrix() {
-  const tbody = document.getElementById('deptMatrixTableBody');
-  const res = await apiFetch('/api/analytics/departments');
-  if (!res || !res.ok) return;
-
-  const payload = await res.json();
-  const rows = payload.data || [];
-  if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">No departmental data available.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = rows.map(r => `
-    <tr class="hover:bg-slate-850/60">
-      <td class="p-3 font-semibold text-white">${escapeHtml(r.department)}</td>
-      <td class="p-3">${r.totalTargeted || r.totalEmployees || 0}</td>
-      <td class="p-3 text-amber-400 font-medium">${r.clickRate || 0}%</td>
-      <td class="p-3 text-rose-400 font-bold">${r.compromiseRate || 0}%</td>
-    </tr>
-  `).join('');
-}
-
-async function handleRunAiRiskAnalysis() {
-  const box = document.getElementById('aiRiskAnalysisBox');
-  box.innerHTML = `<span class="text-blue-400 animate-pulse">Running Gemini 3.8 Flash Risk & Remediation Analysis...</span>`;
-
-  const res = await apiFetch('/api/ai/risk-analysis');
-  if (!res || !res.ok) {
-    box.innerHTML = `<span class="text-rose-400">Failed to run AI Risk Analysis.</span>`;
-    return;
-  }
-
-  const payload = await res.json();
-  const data = payload.data || payload;
-  const summary = data.executiveSummary || 'High-risk click patterns detected in Finance and HR.';
-  const recs = data.recommendations || [];
-
-  box.innerHTML = `
-    <p class="font-semibold text-white">${escapeHtml(summary)}</p>
-    ${Array.isArray(recs) && recs.length > 0 ? `<ul class="list-disc pl-5 space-y-1 mt-2 text-slate-300">${recs.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}
-  `;
-}
-
-// 8. EMPLOYEE DIRECTORY & PENDING OAUTH APPROVALS
-async function loadPendingOAuthEmployees() {
-  const tbody = document.getElementById('pendingEmployeesTableBody');
-  const badge = document.getElementById('pendingNavBadge');
-  const countLabel = document.getElementById('pendingCountLabel');
-  if (!tbody) return;
-
-  const res = await apiFetch('/api/employees/pending');
-  if (!res || !res.ok) return;
-
-  const data = await res.json();
-  const pending = data.pendingEmployees || [];
-
-  if (countLabel) countLabel.textContent = `${pending.length} Pending`;
-  if (badge) {
-    badge.textContent = pending.length;
-    badge.classList.toggle('hidden', pending.length === 0);
-  }
-
-  if (pending.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500">No pending OAuth sign-ups awaiting approval.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = pending.map(emp => `
-    <tr class="hover:bg-slate-850/60 transition">
-      <td class="py-3.5 px-5">
-        <div class="font-bold text-white">${escapeHtml(emp.name)}</div>
-        <div class="text-xs text-amber-400">${escapeHtml(emp.email)}</div>
-      </td>
-      <td class="py-3.5 px-5">
-        <span class="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-semibold">
-          ${escapeHtml(emp.department || 'Unassigned')}
-        </span>
-      </td>
-      <td class="py-3.5 px-5 text-slate-400 text-xs">${new Date(emp.created_at).toLocaleString()}</td>
-      <td class="py-3.5 px-5 text-right space-x-2">
-        <button onclick="approveOAuthEmployee(${emp.id})" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold shadow transition">
-          Approve
-        </button>
-        <button onclick="ignoreOAuthEmployee(${emp.id})" class="px-3.5 py-1.5 bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold transition">
-          Ignore
-        </button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-async function approveOAuthEmployee(id) {
-  const res = await apiFetch(`/api/employees/${id}/approve`, { method: 'PUT' });
-  if (res && res.ok) {
-    showToast('OAuth Employee approved and added to active roster!');
-    await loadPendingOAuthEmployees();
-    await loadTargetRoster(STATE.activePage);
-  } else {
-    alert('Failed to approve employee.');
-  }
-}
-
-async function ignoreOAuthEmployee(id) {
-  if (!confirm('Ignore and remove this pending OAuth sign-up request?')) return;
-  const res = await apiFetch(`/api/employees/${id}`, { method: 'DELETE' });
-  if (res && res.ok) {
-    showToast('Pending OAuth request ignored and removed.');
-    await loadPendingOAuthEmployees();
-  }
-}
-
-async function loadTargetRoster(page = 1) {
-  STATE.activePage = page;
-  const tbody = document.getElementById('rosterTableBody');
-  const search = document.getElementById('rosterSearchInput').value.trim();
-  const risk = document.getElementById('rosterRiskFilter').value;
-
-  const query = new URLSearchParams({ page, limit: 10 });
-  if (search) query.append('search', search);
-  if (risk) query.append('risk_level', risk);
-
-  const res = await apiFetch(`/api/employees?${query.toString()}`);
-  if (!res || !res.ok) return;
-
-  const payload = await res.json();
-  const employees = payload.employees || payload.data || [];
-  const pagination = payload.pagination || { currentPage: 1, totalPages: 1, total: employees.length };
-  const currentPage = pagination.currentPage || pagination.page || 1;
-
-  document.getElementById('metricTotalRecipients').textContent = pagination.totalRecords || pagination.total || employees.length;
-  document.getElementById('rosterPaginationInfo').textContent = `Page ${currentPage} of ${pagination.totalPages || 1}`;
-  document.getElementById('rosterPrevBtn').disabled = currentPage <= 1;
-  document.getElementById('rosterNextBtn').disabled = currentPage >= (pagination.totalPages || 1);
-
-  if (employees.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No approved employees match your filter criteria.</td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = employees.map(emp => `
-    <tr class="hover:bg-slate-850/60 transition">
-      <td class="py-4 px-5">
-        <div class="font-semibold text-white">${escapeHtml(emp.name)}</div>
-        <div class="text-xs text-slate-400">${escapeHtml(emp.email)}</div>
-      </td>
-      <td class="py-4 px-5 text-slate-300">${escapeHtml(emp.department || 'General')}</td>
-      <td class="py-4 px-5">
-        <span class="px-3 py-1 rounded-full text-xs font-semibold ${getRiskBadgeStyle(emp.risk_level)}">${escapeHtml(emp.risk_level || 'Perfect (0% Risk)')}</span>
-      </td>
-      <td class="py-4 px-5 text-slate-400">${new Date(emp.created_at).toLocaleDateString()}</td>
-      <td class="py-4 px-5 text-right">
-        <button onclick="deleteEmployee(${emp.id})" class="text-xs text-rose-400 hover:underline font-medium">Delete</button>
-      </td>
-    </tr>
-  `).join('');
-}
-
-async function handleAddEmployee(e) {
-  e.preventDefault();
-  const name = document.getElementById('addEmpName').value.trim();
-  const email = document.getElementById('addEmpEmail').value.trim();
-  const department = document.getElementById('addEmpDept').value.trim();
-
-  const res = await apiFetch('/api/employees', {
-    method: 'POST',
-    body: JSON.stringify({ name, email, department, risk_level: 'Perfect (0% Risk)' })
-  });
-
-  if (res && res.ok) {
-    showToast(`Added ${name} (${email}) with Perfect (0% Risk)!`);
-    document.getElementById('addEmployeeModal').classList.add('hidden');
-    document.getElementById('addEmployeeForm').reset();
-    loadTargetRoster(1);
-  } else {
-    alert('Failed to add employee.');
-  }
-}
-
-async function deleteEmployee(id) {
-  if (!confirm('Remove this employee from the target directory?')) return;
-  const res = await apiFetch(`/api/employees/${id}`, { method: 'DELETE' });
-  if (res && res.ok) {
-    showToast('Employee removed.');
-    loadTargetRoster(STATE.activePage);
-  }
-}
-
-async function handleCsvUpload(e) {
-  e.preventDefault();
-  const fileInput = document.getElementById('csvFileInput');
-  if (!fileInput.files[0]) return alert('Choose a .csv file first.');
-
-  const formData = new FormData();
-  formData.append('file', fileInput.files[0]);
-
-  const res = await apiFetch('/api/employees/upload-csv', { method: 'POST', body: formData });
-  if (res && res.ok) {
-    const data = await res.json();
-    showToast(`CSV Imported: ${data.totalRows || data.affectedRows || 0} rows processed.`);
-    document.getElementById('csvModal').classList.add('hidden');
-    fileInput.value = '';
-    loadTargetRoster(1);
-  } else {
-    alert('CSV upload failed.');
-  }
-}
-
-// 9. AUTHENTICATED PDF DOWNLOAD
-async function downloadCampaignPdf(campaignId) {
-  showToast(`Generating PDF Report for Campaign #${campaignId}...`);
-  try {
-    const res = await apiFetch(`/api/reports/campaign/${campaignId}/pdf`);
-    if (!res || !res.ok) {
-      alert('Failed to generate PDF.');
-      return;
+    // Attach click listener for "Next Tip ↻" button
+    const rotateBtn = document.getElementById('awareness-rotate-btn');
+    if (rotateBtn) {
+      rotateBtn.addEventListener('click', () => {
+        quoteIndex++;
+        updateAwarenessQuote();
+      });
     }
 
-    const blob = await res.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `campaign_${campaignId}_report.pdf`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.URL.revokeObjectURL(url);
-    showToast(`Campaign #${campaignId} PDF downloaded!`);
-  } catch (err) {
-    alert('Failed to download PDF.');
-  }
-}
+    // Always-Available 5 Study Curriculum Modules
+    async function loadAlwaysAvailableModules() {
+      const container = document.getElementById('emp-modules-list') || 
+                        document.getElementById('trainingModulesContainer') || 
+                        document.getElementById('training-modules-container');
+      if (!container) return;
 
-// 10. CAMPAIGNS & MASKED DISPATCH
-async function loadCampaignsList() {
-  const tbody = document.getElementById('campaignTableBody');
-  const select = document.getElementById('analyticsCampaignSelect');
+      try {
+        const res = await apiFetch('/api/quizzes/modules');
+        const modules = Array.isArray(res) ? res : (res.modules || res.data || []);
 
-  const res = await apiFetch('/api/campaigns');
-  if (!res || !res.ok) return;
+        if (modules.length === 0) {
+          container.innerHTML = '<p class="text-slate-400 text-xs">No curriculum modules published yet.</p>';
+          return;
+        }
 
-  const payload = await res.json();
-  const campaigns = payload.campaigns || payload.data || [];
-
-  if (campaigns.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-slate-500">No campaigns created yet.</td></tr>`;
-    return;
-  }
-
-  select.innerHTML = campaigns.map(c => `<option value="${c.id}">#${c.id} — ${escapeHtml(c.name)} (${c.status})</option>`).join('');
-  loadCampaignDashboardMetrics(campaigns[0].id);
-
-  tbody.innerHTML = campaigns.map(c => {
-    const lpLabel = c.landing_page_name || LANDING_PAGE_LABELS[c.landing_page_id] || `Landing #${c.landing_page_id || 1}`;
-    return `
-      <tr class="hover:bg-slate-850/60 transition">
-        <td class="py-4 px-5">
-          <div class="font-semibold text-white">${escapeHtml(c.name)}</div>
-          <div class="text-xs text-slate-400">Campaign ID: #${c.id}</div>
-        </td>
-        <td class="py-4 px-5">
-          <span class="px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadgeStyle(c.status)}">${c.status}</span>
-        </td>
-        <td class="py-4 px-5 text-slate-300 text-xs">
-          <div>Template #${c.template_id || 1}</div>
-          <div class="text-blue-400 font-medium mt-0.5">${escapeHtml(lpLabel)}</div>
-        </td>
-        <td class="py-4 px-5 text-right space-x-2">
-          <button onclick="triggerDispatch(${c.id})" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-600/20 transition">
-            Send Masked Phishing Mail
-          </button>
-          <button onclick="downloadCampaignPdf(${c.id})" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl border border-slate-700 text-xs font-semibold transition">
-            PDF
-          </button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-}
-
-async function handleCreateCampaign(e) {
-  e.preventDefault();
-  let name = document.getElementById('campNameInput').value.trim();
-  const description = document.getElementById('campDescInput').value.trim();
-  const template_id = parseInt(document.getElementById('campTemplateSelect')?.value, 10) || 1;
-  const landing_page_id = parseInt(document.getElementById('campLandingSelect')?.value, 10) || 1;
-
-  if (!name) name = `Phishing Simulation (${new Date().toLocaleDateString()})`;
-
-  const res = await apiFetch('/api/campaigns', {
-    method: 'POST',
-    body: JSON.stringify({ name, description: description || 'Simulated security awareness drill', template_id, landing_page_id })
-  });
-
-  if (!res) return;
-  const data = await res.json();
-
-  if (res.ok && (data.success || data.campaign_id || data.id)) {
-    showToast(`Campaign "${name}" registered!`);
-    document.getElementById('newCampaignModal').classList.add('hidden');
-    document.getElementById('createCampaignForm').reset();
-    await loadCampaignsList();
-  } else {
-    alert(`Error: ${data.error || data.message}`);
-  }
-}
-
-async function triggerDispatch(campaignId) {
-  const senderMask = document.getElementById('customSenderMask')?.value || 'Microsoft 365 Security Alert';
-  const senderAlias = document.getElementById('customSenderAlias')?.value || 'ms365-security';
-
-  if (!confirm(`Dispatch Campaign #${campaignId} via Gmail using display mask "${senderMask}" (+${senderAlias})?`)) return;
-
-  showToast(`Dispatching emails via Gmail SMTP...`);
-  const res = await apiFetch(`/api/campaigns/${campaignId}/send`, {
-    method: 'POST',
-    body: JSON.stringify({ senderMask, senderAlias })
-  });
-
-  if (res && res.ok) {
-    showToast(`Simulation sent! Check target Gmail inboxes.`);
-    loadCampaignsList();
-    loadCampaignDashboardMetrics(campaignId);
-    loadTemporalHeatmap();
-  } else {
-    alert('Campaign dispatch failed.');
-  }
-}
-
-// 11. GEMINI AI GENERATOR
-async function handleAiGeneration() {
-  const scenario = document.getElementById('aiScenarioInput').value.trim();
-  const department = document.getElementById('aiDeptInput').value.trim();
-  const urgency = document.getElementById('aiUrgencyInput').value;
-  const resultArea = document.getElementById('aiResultArea');
-
-  if (!scenario) return alert('Enter a pretext scenario first.');
-
-  resultArea.classList.remove('hidden');
-  resultArea.innerHTML = `<span class="text-blue-400 animate-pulse">Generating lure with Gemini 3.8 Flash & saving to database...</span>`;
-
-  const res = await apiFetch('/api/ai/generate-email', {
-    method: 'POST',
-    body: JSON.stringify({ scenario, department, urgency })
-  });
-
-  if (res && res.ok) {
-    const payload = await res.json();
-    const data = payload.data || {};
-    const tId = data.templateId;
-
-    await loadTemplates();
-
-    resultArea.innerHTML = `
-      <div class="flex items-center justify-between pb-2 border-b border-slate-800">
-        <div>
-          <span class="text-xs bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded">Saved in MySQL as Template #${tId}</span>
-          <h4 class="font-bold text-white text-base mt-1">${escapeHtml(data.templateName || scenario)}</h4>
-        </div>
-        <button onclick="useAiTemplateInCampaign(${tId}, '${escapeHtml(data.templateName || scenario)}')" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-xs shadow-md">
-          Use in New Campaign →
-        </button>
-      </div>
-      <div class="text-sm"><strong class="text-slate-400">Subject:</strong> <span class="text-white">${escapeHtml(data.subject)}</span></div>
-      <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 max-h-36 overflow-y-auto">
-        ${escapeHtml(data.bodyHtml)}
-      </div>
-    `;
-  } else {
-    resultArea.innerHTML = `<span class="text-rose-400">Failed to generate template.</span>`;
-  }
-}
-
-function useAiTemplateInCampaign(templateId, name) {
-  document.getElementById('aiModal').classList.add('hidden');
-  populateTemplateDropdown(templateId);
-  const cleanName = (name || 'AI Generated Drill').replace(/^Simulation:\s*/, '');
-  document.getElementById('campNameInput').value = `Simulation: ${cleanName}`;
-  document.getElementById('newCampaignModal').classList.remove('hidden');
-}
-
-// 12. AWARENESS PAGE: ASSIGN QUIZ + MULTI-MCQ BUILDER + AUDIT LOGS
-function resetDynamicMcqBuilder() {
-  const container = document.getElementById('dynamicMcqBuilderList');
-  if (!container) return;
-  container.innerHTML = '';
-  STATE.mcqQuestionCount = 0;
-  appendMcqQuestionBlock();
-}
-
-function appendMcqQuestionBlock() {
-  const container = document.getElementById('dynamicMcqBuilderList');
-  if (!container) return;
-  STATE.mcqQuestionCount++;
-  const idx = STATE.mcqQuestionCount;
-
-  const block = document.createElement('div');
-  block.className = 'mcq-builder-item p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-2.5';
-  block.innerHTML = `
-    <div class="flex items-center justify-between">
-      <span class="font-bold text-blue-400 text-xs uppercase">MCQ Question #${idx}</span>
-      ${idx > 1 ? `<button type="button" onclick="this.closest('.mcq-builder-item').remove()" class="text-xs text-rose-400 hover:underline">Remove</button>` : ''}
-    </div>
-    <input type="text" required placeholder="Enter Question #${idx}..." class="mcq-q w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-white text-sm" />
-    <div class="grid grid-cols-2 gap-2">
-      <input type="text" required placeholder="Option A" class="mcq-a bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-xs" />
-      <input type="text" required placeholder="Option B" class="mcq-b bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-xs" />
-      <input type="text" required placeholder="Option C" class="mcq-c bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-xs" />
-      <input type="text" required placeholder="Option D" class="mcq-d bg-slate-900 border border-slate-800 rounded-lg p-2 text-white text-xs" />
-    </div>
-    <div class="flex items-center justify-between pt-1">
-      <span class="text-xs text-slate-400">Correct Answer:</span>
-      <select class="mcq-correct bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-white text-xs font-bold">
-        <option value="A">Option A</option>
-        <option value="B">Option B</option>
-        <option value="C">Option C</option>
-        <option value="D">Option D</option>
-      </select>
-    </div>
-  `;
-  container.appendChild(block);
-}
-
-async function loadAdminAwarenessPage() {
-  const list = document.getElementById('adminQuizzesList');
-  const quizSelect = document.getElementById('assignQuizSelect');
-
-  const qRes = await apiFetch('/api/quizzes');
-  if (qRes && qRes.ok) {
-    const data = await qRes.json();
-    const quizzes = data.quizzes || [];
-
-    if (quizSelect) {
-      quizSelect.innerHTML = quizzes.map(q =>
-        `<option value="${q.id}">#${q.id}: ${escapeHtml(q.title)} (${q.question_count || 7} MCQs)</option>`
-      ).join('');
-    }
-
-    list.innerHTML = quizzes.map(q => `
-      <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-3">
-        <div>
-          <span class="text-[11px] text-emerald-400 font-bold uppercase">${escapeHtml(q.module_title || 'Security Module')}</span>
-          <p class="font-bold text-white text-sm mt-0.5">${escapeHtml(q.title)}</p>
-          <p class="text-xs text-slate-400 mt-1">${escapeHtml(q.content || '')}</p>
-        </div>
-        <div class="flex flex-col items-end space-y-2 shrink-0">
-          <span class="px-2.5 py-1 bg-blue-500/10 text-blue-400 rounded-lg text-xs font-semibold">${q.question_count || 7} MCQs | Pass: ${q.pass_score}%</span>
-          <button onclick="launchQuiz(${q.id}, '${escapeHtml(q.title)}', ${q.pass_score || 70})" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold">
-            Preview Quiz
-          </button>
-        </div>
-      </div>
-    `).join('');
-  }
-
-  const empSelect = document.getElementById('assignEmployeeSelect');
-  const empRes = await apiFetch('/api/employees?page=1&limit=100');
-  if (empRes && empRes.ok && empSelect) {
-    const empData = await empRes.json();
-    const emps = empData.employees || empData.data || [];
-    empSelect.innerHTML = emps.map(e =>
-      `<option value="${e.id}">${escapeHtml(e.name)} (${escapeHtml(e.email)}) — [${escapeHtml(e.risk_level)}]</option>`
-    ).join('');
-  }
-
-  const auditBody = document.getElementById('auditLogsTableBody');
-  const aRes = await apiFetch('/api/audit-logs?page=1&limit=12');
-  if (aRes && aRes.ok) {
-    const aData = await aRes.json();
-    const logs = aData.data || aData.logs || [];
-    auditBody.innerHTML = logs.map(l => `
-      <tr>
-        <td class="p-3.5 text-slate-400">${new Date(l.created_at).toLocaleString()}</td>
-        <td class="p-3.5 text-white">${escapeHtml(l.user_email || `User #${l.user_id || 1}`)}</td>
-        <td class="p-3.5 text-emerald-400 font-semibold">${escapeHtml(l.action)}</td>
-        <td class="p-3.5 text-slate-400">${escapeHtml(l.ip_address || '127.0.0.1')}</td>
-      </tr>
-    `).join('');
-  }
-}
-
-async function handleAssignQuiz(e) {
-  e.preventDefault();
-  const quizId = parseInt(document.getElementById('assignQuizSelect').value, 10);
-  const targetType = document.getElementById('assignTargetType').value;
-  const employeeId = parseInt(document.getElementById('assignEmployeeSelect').value, 10);
-  const department = document.getElementById('assignDeptSelect').value;
-  const feedback = document.getElementById('assignQuizFeedback');
-  const btn = document.getElementById('assignQuizSubmitBtn');
-
-  btn.disabled = true;
-  feedback.classList.remove('hidden');
-  feedback.className = 'p-3.5 rounded-xl text-sm font-medium bg-blue-950/50 text-blue-300 border border-blue-500/30';
-  feedback.textContent = 'Assigning quiz and dispatching email notification via Gmail SMTP...';
-
-  const res = await apiFetch('/api/quizzes/assign', {
-    method: 'POST',
-    body: JSON.stringify({ quizId, targetType, employeeId, department })
-  });
-  btn.disabled = false;
-
-  if (res && res.ok) {
-    const data = await res.json();
-    feedback.className = 'p-3.5 rounded-xl text-sm font-medium bg-emerald-950/50 text-emerald-300 border border-emerald-500/30';
-    feedback.textContent = `✓ ${data.message} (Sent to: ${(data.summary?.emailedTo || []).join(', ')})`;
-    showToast(data.message);
-    loadAdminAwarenessPage();
-  } else {
-    const err = res ? await res.json() : {};
-    feedback.className = 'p-3.5 rounded-xl text-sm font-medium bg-rose-950/50 text-rose-300 border border-rose-500/30';
-    feedback.textContent = err.message || 'Failed to assign quiz.';
-  }
-}
-
-async function handleCreateQuizModule(e) {
-  e.preventDefault();
-  const moduleTitle = document.getElementById('newModTitle').value.trim();
-  const moduleContent = document.getElementById('newModContent').value.trim();
-  const quizTitle = document.getElementById('newQuizTitle').value.trim();
-  const passScore = parseInt(document.getElementById('newQuizPassScore').value, 10) || 70;
-
-  const questionBlocks = document.querySelectorAll('.mcq-builder-item');
-  const questions = [];
-  questionBlocks.forEach(block => {
-    questions.push({
-      question: block.querySelector('.mcq-q').value.trim(),
-      option_a: block.querySelector('.mcq-a').value.trim(),
-      option_b: block.querySelector('.mcq-b').value.trim(),
-      option_c: block.querySelector('.mcq-c').value.trim(),
-      option_d: block.querySelector('.mcq-d').value.trim(),
-      correct_option: block.querySelector('.mcq-correct').value
-    });
-  });
-
-  const res = await apiFetch('/api/quizzes/create', {
-    method: 'POST',
-    body: JSON.stringify({ moduleTitle, moduleContent, quizTitle, passScore, questions })
-  });
-
-  if (res && res.ok) {
-    const data = await res.json();
-    showToast(data.message || 'Training Module & Quiz published!');
-    document.getElementById('createQuizForm').reset();
-    resetDynamicMcqBuilder();
-    loadAdminAwarenessPage();
-  } else {
-    alert('Failed to create quiz.');
-  }
-}
-
-// 13. EMPLOYEE PERSONAL PORTAL (LIVE DB SYNC + 4-TIER RISK BADGE)
-async function loadEmployeePortal() {
-  const empId = STATE.user?.employeeId || STATE.user?.id || 1;
-  const empEmail = STATE.user?.email || '';
-
-  const pRes = await apiFetch(`/api/quizzes/employee/${empId}?email=${encodeURIComponent(empEmail)}`);
-  if (pRes && pRes.ok) {
-    const pData = await pRes.json();
-    const emp = pData.employee || {};
-    const history = pData.quizHistory || [];
-
-    STATE.user = { ...STATE.user, id: emp.id, employeeId: emp.id, name: emp.name, email: emp.email, department: emp.department, risk_level: emp.risk_level };
-    localStorage.setItem('user', JSON.stringify(STATE.user));
-
-    document.getElementById('empPortalName').textContent = emp.name || 'Employee';
-    document.getElementById('empPortalEmail').textContent = emp.email || '';
-
-    const riskEl = document.getElementById('empContextRisk');
-    const riskText = emp.risk_level || 'Perfect (0% Risk)';
-    riskEl.textContent = riskText;
-    riskEl.className = `inline-block px-3.5 py-1.5 rounded-full text-sm font-bold ${getRiskBadgeStyle(riskText)}`;
-
-    document.getElementById('empContextDept').textContent = emp.department || 'General';
-    document.getElementById('empContextCompletedCount').textContent = history.length;
-
-    const hBody = document.getElementById('empQuizHistoryBody');
-    hBody.innerHTML = history.length === 0
-      ? `<tr><td colspan="4" class="p-4 text-center text-slate-500">No quizzes completed yet.</td></tr>`
-      : history.map(h => `
-          <tr>
-            <td class="p-3.5 font-semibold text-white">${escapeHtml(h.quiz_title)}</td>
-            <td class="p-3.5 font-bold">${h.score}%</td>
-            <td class="p-3.5"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${h.passed ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'}">${h.passed ? 'Passed' : 'Failed'}</span></td>
-            <td class="p-3.5 text-slate-400">${new Date(h.completed_at).toLocaleString()}</td>
-          </tr>
+        container.innerHTML = modules.map((m) => `
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between gap-2 hover:border-slate-700 transition">
+            <div class="truncate">
+              <div class="font-semibold text-white text-xs truncate">${escapeHtml(m.title)}</div>
+              <div class="text-[10px] text-slate-400">Core Curriculum • Standard Reading</div>
+            </div>
+            <button data-mod-id="${m.id}" class="read-mod-btn px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-semibold whitespace-nowrap transition">
+              Read 📖
+            </button>
+          </div>
         `).join('');
-  }
 
-  const qRes = await apiFetch('/api/quizzes');
-  const container = document.getElementById('trainingModulesContainer');
-  if (qRes && qRes.ok) {
-    const qData = await qRes.json();
-    const modules = qData.quizzes || [];
-    if (modules.length === 0) {
-      container.innerHTML = '<p class="text-slate-400 text-sm">No quizzes found in database.</p>';
-      return;
+        container.querySelectorAll('.read-mod-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const modId = Number(btn.dataset.modId);
+            const selected = modules.find((m) => m.id === modId);
+            if (selected) {
+              openModuleReader(selected);
+            }
+          });
+        });
+      } catch (err) {
+        console.warn('Could not load modules:', err.message);
+        container.innerHTML = `<div class="text-rose-400 text-xs">${escapeHtml(err.message)}</div>`;
+      }
     }
-    container.innerHTML = modules.map(m => `
-      <div class="p-5 bg-slate-950 border border-slate-800 rounded-2xl flex flex-wrap items-center justify-between gap-4">
-        <div class="max-w-2xl">
-          <span class="text-xs font-bold uppercase text-emerald-400">${escapeHtml(m.module_title || 'Security Awareness Module')}</span>
-          <h4 class="text-base font-bold text-white mt-0.5">${escapeHtml(m.title)}</h4>
-          <p class="text-sm text-slate-400 mt-1 leading-relaxed">${escapeHtml(m.content || '')}</p>
-          <div class="flex items-center space-x-3 mt-2.5">
-            <span class="text-xs text-blue-400 bg-blue-500/10 px-3 py-1 rounded-lg font-semibold">${m.question_count || 7} MCQ Questions</span>
-            <span class="text-xs text-amber-400 bg-amber-500/10 px-3 py-1 rounded-lg font-semibold">Pass Threshold: ${m.pass_score || 70}%</span>
+
+    // Interactive Reader for Study Modules in the Right-Hand Workspace
+    function openModuleReader(mod) {
+      const workspace = document.getElementById('quiz-workspace');
+      if (!workspace) return;
+
+      const formattedContent = escapeHtml(mod.content)
+        .replace(/### (.*?)\n/g, '<h4 class="text-sm font-bold text-blue-400 mt-4 mb-2 tracking-wide uppercase">$1</h4>')
+        .replace(/\n\n/g, '</p><p class="text-xs text-slate-300 leading-relaxed mb-3">');
+
+      workspace.innerHTML = `
+        <div class="space-y-6">
+          <div class="border-b border-slate-800 pb-4 flex items-center justify-between">
+            <div>
+              <span class="text-[11px] uppercase tracking-wider text-blue-400 font-bold">Standard Curriculum Lesson #${mod.id}</span>
+              <h2 class="text-lg font-bold text-white mt-1">${escapeHtml(mod.title)}</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[11px] font-semibold">
+              Study Curriculum
+            </span>
+          </div>
+
+          <div class="p-6 bg-slate-950 border border-slate-800 rounded-2xl text-xs text-slate-300 leading-relaxed max-h-[500px] overflow-y-auto space-y-2">
+            <p class="text-xs text-slate-300 leading-relaxed mb-3">${formattedContent}</p>
+          </div>
+
+          <div class="pt-4 border-t border-slate-800 flex items-center justify-between gap-4">
+            <div class="text-xs text-slate-400">
+              Finished reading? Test your understanding with the corresponding assessment.
+            </div>
+            <div class="flex items-center space-x-2">
+              <button id="close-reader-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition">
+                Close Lesson
+              </button>
+              <button id="launch-module-quiz-btn" data-mod-id="${mod.id}" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold shadow-lg shadow-blue-500/20 transition flex items-center gap-1.5">
+                <span>Take Assessment Drill</span>
+                <span>✍️</span>
+              </button>
+            </div>
           </div>
         </div>
-        <button onclick="launchQuiz(${m.id}, '${escapeHtml(m.title)}', ${m.pass_score || 70})" class="px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-600/20 transition">
-          Start 7-MCQ Quiz →
-        </button>
-      </div>
-    `).join('');
-  }
-}
+      `;
 
-async function launchQuiz(quizId, title, passScore) {
-  STATE.currentQuizId = quizId;
-  const modal = document.getElementById('quizModal');
-  const questionsBox = document.getElementById('quizQuestionsContainer');
-  document.getElementById('quizModalTitle').textContent = title;
-  document.getElementById('quizModalThreshold').textContent = `Pass threshold: ${passScore}% — Answer all questions below`;
-  document.getElementById('quizSubmissionFeedback').textContent = '';
-  questionsBox.innerHTML = '<p class="text-slate-400">Loading MCQ questions...</p>';
-  modal.classList.remove('hidden');
+      document.getElementById('close-reader-btn')?.addEventListener('click', () => {
+        window.location.reload();
+      });
 
-  const res = await apiFetch(`/api/quizzes/${quizId}`);
-  if (!res || !res.ok) return;
-
-  const payload = await res.json();
-  const questions = payload.questions || [];
-
-  questionsBox.innerHTML = questions.map((q, idx) => `
-    <div class="space-y-3 p-4 bg-slate-950 border border-slate-800 rounded-xl">
-      <p class="font-bold text-white text-sm">${idx + 1}. ${escapeHtml(q.question)}</p>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-slate-200 text-sm">
-        <label class="flex items-center space-x-2.5 bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-blue-500 cursor-pointer">
-          <input type="radio" name="question_${q.id}" value="A" class="text-blue-600" />
-          <span><strong>A:</strong> ${escapeHtml(q.option_a)}</span>
-        </label>
-        <label class="flex items-center space-x-2.5 bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-blue-500 cursor-pointer">
-          <input type="radio" name="question_${q.id}" value="B" class="text-blue-600" />
-          <span><strong>B:</strong> ${escapeHtml(q.option_b)}</span>
-        </label>
-        <label class="flex items-center space-x-2.5 bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-blue-500 cursor-pointer">
-          <input type="radio" name="question_${q.id}" value="C" class="text-blue-600" />
-          <span><strong>C:</strong> ${escapeHtml(q.option_c)}</span>
-        </label>
-        <label class="flex items-center space-x-2.5 bg-slate-900 p-3 rounded-xl border border-slate-800 hover:border-blue-500 cursor-pointer">
-          <input type="radio" name="question_${q.id}" value="D" class="text-blue-600" />
-          <span><strong>D:</strong> ${escapeHtml(q.option_d)}</span>
-        </label>
-      </div>
-    </div>
-  `).join('');
-}
-
-async function submitActiveQuiz() {
-  if (!STATE.currentQuizId) return;
-  const empId = STATE.user?.employeeId || STATE.user?.id || 1;
-  const empEmail = STATE.user?.email || '';
-  const questionsBox = document.getElementById('quizQuestionsContainer');
-  const feedback = document.getElementById('quizSubmissionFeedback');
-  const checked = questionsBox.querySelectorAll('input[type="radio"]:checked');
-
-  const answers = {};
-  checked.forEach(input => {
-    answers[input.name.replace('question_', '')] = input.value;
-  });
-
-  const res = await apiFetch(`/api/quizzes/${STATE.currentQuizId}/submit`, {
-    method: 'POST',
-    body: JSON.stringify({ employee_id: empId, employee_email: empEmail, answers })
-  });
-
-  if (res && res.ok) {
-    const result = await res.json();
-    feedback.className = result.passed ? 'text-sm text-emerald-400 font-bold' : 'text-sm text-rose-400 font-bold';
-    feedback.textContent = result.message;
-    showToast(result.message);
-    if (STATE.user?.role === 'Employee') {
-      loadEmployeePortal();
+      document.getElementById('launch-module-quiz-btn')?.addEventListener('click', () => {
+        const user = getAuthUser();
+        const quizId = Number(mod.id);
+        openQuizWorkspace(quizId, user?.id);
+      });
     }
-  }
-}
 
-// 14. HELPERS & 4-TIER RISK BADGE STYLING
-function getStatusBadgeStyle(status) {
-  if (status === 'Completed') return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-  if (status === 'Running') return 'bg-blue-500/15 text-blue-400 border border-blue-500/30 animate-pulse';
-  return 'bg-slate-800 text-slate-300 border border-slate-700';
-}
+    // Assigned Remediation Quizzes
+    async function loadAssignedQuizzesOnly(empId, empName) {
+      const listEl = document.getElementById('emp-quizzes-list') || document.getElementById('assignedQuizzesList');
+      const welcomeBox = document.getElementById('unassigned-welcome-box');
+      const welcomeText = document.getElementById('unassigned-welcome-text');
+      const countBadge = document.getElementById('assigned-badge-count');
+      if (!listEl) return;
 
-function getRiskBadgeStyle(risk) {
-  const r = String(risk || '');
-  if (r.includes('100%') || r.includes('CRITICAL')) {
-    return 'bg-rose-600/25 text-rose-300 border border-rose-500 font-extrabold animate-pulse';
-  }
-  if (r.includes('40%') || r === 'High') {
-    return 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold';
-  }
-  if (r.includes('15%') || r === 'Low') {
-    return 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-  }
-  // Perfect (0% Risk)
-  return 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30';
-}
+      try {
+        const res = await apiFetch(`/api/quizzes?employee_id=${empId}`);
+        const assignedQuizzes = Array.isArray(res) ? res : (res.quizzes || res.assignedQuizzes || res.data || []);
 
-function debounce(fn, wait) {
-  let t;
-  return (...args) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, args), wait); };
-}
+        if (countBadge) {
+          countBadge.textContent = `${assignedQuizzes.length} active`;
+        }
 
-function escapeHtml(str) {
-  return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+        if (assignedQuizzes.length === 0) {
+          listEl.innerHTML = '';
+          if (welcomeBox) {
+            welcomeBox.classList.remove('hidden');
+            if (welcomeText) {
+              welcomeText.textContent = `Hello ${escapeHtml(empName || 'there')}, you look new here, welcome to the phishing awareness program!!`;
+            }
+          } else {
+            listEl.innerHTML = `
+              <div class="p-5 bg-slate-900/60 border border-slate-800 rounded-xl text-center">
+                <p class="text-xs font-semibold text-emerald-400">All clear! No mandatory quizzes assigned to your profile.</p>
+                <p class="text-[11px] text-slate-400 mt-1">Review standard study modules below to maintain your cyber hygiene.</p>
+              </div>
+            `;
+          }
+          return;
+        }
+
+        if (welcomeBox) welcomeBox.classList.add('hidden');
+
+        listEl.innerHTML = assignedQuizzes.map((q) => `
+          <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+            <div>
+              <div class="font-semibold text-white text-xs">${escapeHtml(q.title)}</div>
+              <div class="text-[11px] text-slate-400">Pass Score: ${q.pass_score}% • ${q.question_count || 7} Questions</div>
+            </div>
+            <button data-quiz-id="${q.id}" class="start-quiz-btn px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-semibold transition">
+              Attempt
+            </button>
+          </div>
+        `).join('');
+
+        listEl.querySelectorAll('.start-quiz-btn').forEach((btn) => {
+          btn.addEventListener('click', () => openQuizWorkspace(Number(btn.dataset.quizId), empId));
+        });
+      } catch (err) {
+        listEl.innerHTML = `<div class="text-rose-400 text-xs">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // Historical Assessment Records
+    async function loadEmployeeQuizHistory(empId) {
+      const historyBody = document.getElementById('empQuizHistoryBody') || document.getElementById('emp-quiz-history-body');
+      const countEl = document.getElementById('empContextCompletedCount');
+      if (!historyBody) return;
+      try {
+        const res = await apiFetch(`/api/quizzes/employee/${empId}`);
+        const history = Array.isArray(res) ? res : (res.quizHistory || res.data?.quizHistory || []);
+        
+        if (countEl) {
+          countEl.textContent = history.filter(h => h.passed).length;
+        }
+
+        if (history.length === 0) {
+          historyBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">No completed assessments recorded.</td></tr>';
+          return;
+        }
+        historyBody.innerHTML = history.map((h) => `
+          <tr class="hover:bg-slate-900/40">
+            <td class="p-3 text-white font-medium text-xs">${escapeHtml(h.quiz_title)}</td>
+            <td class="p-3 text-xs font-bold ${h.passed ? 'text-emerald-400' : 'text-rose-400'}">${h.score}%</td>
+            <td class="p-3 text-xs">
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold ${h.passed ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                ${h.passed ? 'PASSED' : 'RETAKE REQUIRED'}
+              </span>
+            </td>
+            <td class="p-3 text-slate-400 text-xs">${new Date(h.completed_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (e) {
+        console.warn('Could not load quiz history:', e.message);
+      }
+    }
+
+    // Interactive Quiz Workspace & Submission
+    async function openQuizWorkspace(quizId, empId) {
+      const workspace = document.getElementById('quiz-workspace') || document.getElementById('quizWorkspace');
+      if (!workspace) return;
+      try {
+        const data = await apiFetch(`/api/quizzes/${quizId}/questions`);
+        const { quiz, questions } = data;
+
+        workspace.innerHTML = `
+          <div class="space-y-6">
+            <div class="border-b border-slate-800 pb-4">
+              <span class="text-[11px] uppercase tracking-wider text-blue-400 font-bold">Assigned Remediation Drill</span>
+              <h2 class="text-lg font-bold text-white mt-1">${escapeHtml(quiz.title)}</h2>
+              <div class="mt-3 p-4 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+                ${escapeHtml(quiz.module_content || quiz.content || 'Carefully review each scenario and question before submitting your response.')}
+              </div>
+            </div>
+
+            <form id="employee-quiz-form" class="space-y-4">
+              ${questions.map((q, idx) => `
+                <div class="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-2.5">
+                  <div class="text-xs font-semibold text-white">${idx + 1}.${escapeHtml(q.question)}</div>
+                  <div class="grid grid-cols-1 gap-2 text-xs">
+                    ${['A', 'B', 'C', 'D'].map((opt) => `
+                      <label class="flex items-center space-x-2.5 p-2 rounded-lg hover:bg-slate-900 cursor-pointer">
+                        <input type="radio" name="q_${q.id}" value="${opt}" required class="text-blue-600" />
+                        <span class="text-slate-300"><strong>${opt}:</strong> ${escapeHtml(q[`option_${opt.toLowerCase()}`])}</span>
+                      </label>
+                    `).join('')}
+                  </div>
+                </div>
+              `).join('')}
+
+              <button type="submit" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs shadow-lg transition">
+                Submit Assessment Answers
+              </button>
+            </form>
+            <div id="quiz-submit-result" class="hidden p-4 rounded-xl text-xs font-semibold"></div>
+          </div>
+        `;
+
+        const form = document.getElementById('employee-quiz-form');
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const answers = {};
+          questions.forEach((q) => {
+            const chosen = form.querySelector(`input[name="q_${q.id}"]:checked`);
+            if (chosen) answers[q.id] = chosen.value;
+          });
+
+          try {
+            const res = await apiFetch(`/api/quizzes/${quizId}/submit`, {
+              method: 'POST',
+              body: JSON.stringify({ employee_id: empId, answers }),
+            });
+            const resBox = document.getElementById('quiz-submit-result');
+            resBox.className = `p-4 rounded-xl text-xs font-semibold ${
+              res.passed
+                ? 'bg-emerald-500/10 border border-emerald-500/40 text-emerald-300'
+                : 'bg-rose-500/10 border border-rose-500/40 text-rose-300'
+            }`;
+            resBox.textContent = `${res.message} • Updated Risk Tier: ${res.newRiskLevel || 'Evaluated'}`;
+            resBox.classList.remove('hidden');
+
+            if (riskEl && res.newRiskLevel) {
+              riskEl.textContent = res.newRiskLevel;
+              updateAwarenessQuote(res.newRiskLevel);
+            }
+            await loadEmployeeQuizHistory(empId);
+            const user = getAuthUser();
+            await loadAssignedQuizzesOnly(empId, user?.name);
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      } catch (err) {
+        workspace.innerHTML = `<div class="text-rose-400 text-xs">${escapeHtml(err.message)}</div>`;
+      }
+    }
+
+    // Employee Portal Initialization
+    async function initEmployeePortal() {
+      try {
+        const me = await apiFetch('/api/auth/me');
+        if (!me || !me.user) {
+          throw new Error('No user profile returned from session.');
+        }
+
+        const emp = me.user;
+
+        if (emp.role === 'Admin') {
+          console.warn('[Session Notice]: Admin profile detected in Employee Hub. Redirecting to SOC.');
+          window.location.replace('/admin');
+          return;
+        }
+
+        if (targetEmailParam && emp.email && targetEmailParam.toLowerCase() !== emp.email.toLowerCase()) {
+          clearAuthSession();
+          window.location.replace(`/login?portal=employee&target_email=${encodeURIComponent(targetEmailParam)}`);
+          return;
+        }
+
+        saveAuthSession(getAuthToken(), emp, me.sessionId || getSessionId());
+
+        if (greetingEl) {
+          greetingEl.textContent = `${emp.name} (${emp.email})`;
+        }
+        if (deptEl) {
+          deptEl.textContent = emp.department || 'General';
+        }
+        if (riskEl && emp.risk_level) {
+          riskEl.textContent = emp.risk_level;
+          let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+          if (emp.risk_level.includes('CRITICAL')) badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold';
+          else if (emp.risk_level.includes('High')) badgeColor = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+          else if (emp.risk_level.includes('Low')) badgeColor = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+          riskEl.className = `text-xs font-bold px-2.5 py-0.5 rounded border ${badgeColor}`;
+        }
+        if (sessionEl) {
+          sessionEl.textContent = me.sessionId || getSessionId() || 'sess_active';
+        }
+
+        updateAwarenessQuote(emp.risk_level);
+
+        await loadAlwaysAvailableModules();
+        await loadAssignedQuizzesOnly(emp.id, emp.name);
+        await loadEmployeeQuizHistory(emp.id);
+
+        if (assignedQuizParam) {
+          openQuizWorkspace(Number(assignedQuizParam), emp.id);
+        }
+      } catch (err) {
+        console.error('[Employee Portal Auth Catch]:', err.message);
+        clearAuthSession();
+        window.location.replace('/login?portal=employee');
+      }
+    }
+
+    initEmployeePortal();
+  }
+
+  // =========================================================================
+  // PAGE 6: /admin (Full SOC Dashboard Console Workspace)
+  // =========================================================================
+  if (page === 'admin' || (!page && (window.location.pathname === '/admin' || window.location.pathname === '/'))) {
+    const token = getAuthToken();
+    const payload = decodeJwtPayload(token);
+    const user = getAuthUser();
+
+    if (!token || (payload?.role !== 'Admin' && user?.role !== 'Admin')) {
+      clearAuthSession();
+      window.location.replace('/admin-login');
+      return;
+    }
+
+    const adminUserDisplay = document.getElementById('admin-user-display') || document.getElementById('sessionUserName') || document.getElementById('adminSidebarName');
+    const adminSessionBadge = document.getElementById('admin-session-id') || document.getElementById('sessionUserEmail') || document.getElementById('adminSidebarEmail');
+
+    if (adminUserDisplay) {
+      adminUserDisplay.textContent = `${user?.name || payload?.name || 'Admin'} (${user?.email || payload?.email || ''})`;
+    }
+    if (adminSessionBadge) {
+      adminSessionBadge.textContent = payload?.sessionId || getSessionId() || 'sess_active';
+    }
+
+    const toastEl = document.getElementById('admin-toast') || document.getElementById('globalToast');
+    function showToast(msg, ok = true) {
+      if (!toastEl) return;
+      toastEl.className = `p-3.5 rounded-xl text-xs font-semibold border ${
+        ok
+          ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+          : 'bg-rose-500/10 border-rose-500/40 text-rose-300'
+      }`;
+      const textSpan = document.getElementById('globalToastText');
+      if (textSpan) textSpan.textContent = msg;
+      else toastEl.textContent = msg;
+      toastEl.classList.remove('hidden');
+      setTimeout(() => toastEl.classList.add('hidden'), 5000);
+    }
+
+    // -------------------------------------------------------------------------
+    // Tab Navigation Configuration (Dual-Selector Compatible)
+    // -------------------------------------------------------------------------
+    let tabBtns = document.querySelectorAll('.admin-tab-btn');
+    if (!tabBtns.length) tabBtns = document.querySelectorAll('.admin-nav-btn');
+
+    let tabSections = document.querySelectorAll('.admin-tab-section');
+    if (!tabSections.length) tabSections = document.querySelectorAll('.admin-page');
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const target = btn.getAttribute('data-tab') || btn.getAttribute('data-admin-nav');
+
+        tabBtns.forEach((b) => {
+          b.className = 'admin-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition';
+        });
+
+        btn.className = 'admin-tab-btn px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white transition';
+
+        tabSections.forEach((sec) => {
+          const match = sec.id === target || sec.id === `tab-${target}` || sec.id.replace('tab-', '') === target;
+          sec.classList.toggle('hidden', !match);
+        });
+
+        if (target === 'tab-audit' || target === 'pageAwareness' || target === 'audit') {
+          loadAuditLogs(1);
+        } else if (target === 'tab-employees' || target === 'employees') {
+          loadEmployees();
+        } else if (target === 'tab-campaigns' || target === 'campaigns') {
+          loadCampaigns();
+        } else if (target === 'tab-quizzes' || target === 'quizzes') {
+          loadAdminQuizzes();
+        }
+      });
+    });
+
+    // -------------------------------------------------------------------------
+    // Chart.js Funnel Tracking Controller & Multi-Campaign Rollup
+    // -------------------------------------------------------------------------
+    let funnelChartInstance = null;
+
+    async function loadCampaignFunnelAndKPIs(campaignId) {
+      if (!campaignId) return;
+      try {
+        const report = await apiFetch(`/api/reports/campaign/${campaignId}`);
+        const metrics = report.metrics || report.summary || report.totals || report;
+        const rates = report.rates || {};
+
+        const sent = Number(metrics.sent ?? metrics.total_sent ?? metrics.totalRecipients ?? 0);
+        const opened = Number(metrics.opened ?? metrics.total_opened ?? 0);
+        const clicked = Number(metrics.clicked ?? metrics.total_clicked ?? 0);
+        const compromised = Number(metrics.submitted ?? metrics.compromised ?? metrics.total_submitted ?? 0);
+
+        const openRate = rates.openRate !== undefined ? rates.openRate : (sent > 0 ? Math.round((opened / sent) * 100) : 0);
+        const clickRate = rates.clickRate !== undefined ? rates.clickRate : (sent > 0 ? Math.round((clicked / sent) * 100) : 0);
+        const compRate = rates.compromiseRate !== undefined ? rates.compromiseRate : (sent > 0 ? Math.round((compromised / sent) * 100) : 0);
+
+        const elSent = document.getElementById('kpi-total-sent') || document.getElementById('metricTotalSent');
+        const elOpenRate = document.getElementById('kpi-open-rate');
+        const elClicked = document.getElementById('kpi-total-clicked') || document.getElementById('metricTotalClicked');
+        const elClickRate = document.getElementById('kpi-click-rate') || document.getElementById('metricClickRate');
+        const elComp = document.getElementById('kpi-total-compromised') || document.getElementById('metricTotalCompromised');
+        const elCompRate = document.getElementById('kpi-compromise-rate') || document.getElementById('metricCompromiseRate');
+        const elLabel = document.getElementById('funnel-campaign-label') || document.getElementById('funnelActiveCampaignLabel');
+
+        if (elSent) elSent.textContent = sent;
+        if (elOpenRate) elOpenRate.textContent = `${openRate}% Opened (${opened})`;
+        if (elClicked) elClicked.textContent = clicked;
+        if (elClickRate) elClickRate.textContent = `${clickRate}% Click Rate`;
+        if (elComp) elComp.textContent = compromised;
+        if (elCompRate) elCompRate.textContent = `${compRate}% Compromised`;
+
+        if (elLabel) {
+          if (campaignId === 'all') {
+            elLabel.textContent = `Organization-Wide Executive Rollup (${report.campaign?.totalCampaignsCount || 'All'} Drills)`;
+          } else {
+            elLabel.textContent = `${report.campaign?.name || 'Selected Drill'} (Campaign #${campaignId})`;
+          }
+        }
+
+        const ctx = document.getElementById('campaignFunnelChart') || document.getElementById('campaign-funnel-chart');
+        if (ctx && window.Chart) {
+          if (funnelChartInstance) funnelChartInstance.destroy();
+          funnelChartInstance = new window.Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: ['Dispatched', 'Opened', 'Clicked Link', 'Submitted Credentials'],
+              datasets: [
+                {
+                  label: campaignId === 'all' ? 'Organization Interactions' : 'Target Interactions',
+                  data: [sent, opened, clicked, compromised],
+                  backgroundColor: ['#3b82f6', '#6366f1', '#f59e0b', '#f43f5e'],
+                  borderRadius: 8,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  min: 0,
+                  suggestedMax: Math.max(sent, 5),
+                  ticks: { stepSize: 1, color: '#94a3b8' },
+                  grid: { color: '#1e293b' },
+                },
+                x: {
+                  ticks: { color: '#cbd5e1' },
+                  grid: { display: false },
+                },
+              },
+            },
+          });
+        }
+      } catch (err) {
+        console.warn('[Funnel Metrics Warning]:', err.message);
+      }
+    }
+
+    // 24x7 Activity Matrix (Temporal Heatmap)
+    async function loadHeatmapMatrix() {
+      const container = document.getElementById('heatmapGrid') || document.getElementById('heatmap-grid');
+      if (!container) return;
+      try {
+        const res = await apiFetch('/api/analytics/heatmap');
+        const raw = Array.isArray(res) ? res : (res.heatmap || res.data || []);
+
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const lookup = {};
+        raw.forEach((item) => {
+          const dayName =
+            item.dayOfWeek ||
+            item.day_of_week ||
+            item.day ||
+            days[Number(item.dayNumber || item.day_number || 1) - 1] ||
+            'Monday';
+          const hour = Number(item.hourOfDay ?? item.hour_of_day ?? item.hour ?? 0);
+          const count = Number(item.totalEvents ?? item.event_count ?? item.count ?? item.total ?? 0);
+          lookup[`${dayName}_${hour}`] = (lookup[`${dayName}_${hour}`] || 0) + count;
+        });
+
+        container.innerHTML = days
+          .map((day) => {
+            let cells = '';
+            for (let h = 0; h < 24; h++) {
+              const count = lookup[`${day}_${h}`] || 0;
+              let color = 'bg-slate-800/70 border-slate-700/50';
+              if (count >= 5) color = 'bg-rose-500 border-rose-400';
+              else if (count >= 3) color = 'bg-blue-600 border-blue-500';
+              else if (count >= 1) color = 'bg-blue-900 border-blue-700';
+              cells += `<div title="${day} ${String(h).padStart(2, '0')}:00 — ${count} events" class="h-4 rounded-sm border ${color}"></div>`;
+            }
+            return `
+              <div class="flex items-center space-x-2">
+                <span class="w-10 text-[9px] text-slate-400 font-mono truncate">${day.slice(0, 3)}</span>
+                <div class="flex-1 grid grid-cols-24 gap-1">${cells}</div>
+              </div>
+            `;
+          })
+          .join('');
+      } catch {
+        container.innerHTML = `<div class="text-xs text-slate-500">Heatmap data unavailable.</div>`;
+      }
+    }
+
+    // Authenticated PDF/CSV Report Downloader
+    async function downloadProtectedReport(url, filename) {
+      try {
+        const token = getAuthToken();
+        const res = await fetch(url, {
+          headers: { Authorization: token.startsWith('Bearer ') ? token : `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`Export failed (${res.status})`);
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        showToast(`Downloaded ${filename}`);
+        loadAuditLogs();
+      } catch (err) {
+        showToast(err.message, false);
+      }
+    }
+
+    const analyticsSelect = document.getElementById('analyticsCampaignSelect') || document.getElementById('analytics-campaign-select');
+    if (analyticsSelect) {
+      analyticsSelect.addEventListener('change', () => {
+        loadCampaignFunnelAndKPIs(analyticsSelect.value);
+      });
+    }
+
+    document.getElementById('export-csv-btn')?.addEventListener('click', () => {
+      const cid = analyticsSelect?.value || 'all';
+      downloadProtectedReport(`/api/reports/campaign/${cid}/csv`, `campaign_${cid}_report.csv`);
+    });
+
+    document.getElementById('export-pdf-btn')?.addEventListener('click', () => {
+      const cid = analyticsSelect?.value || 'all';
+      downloadProtectedReport(`/api/reports/campaign/${cid}/pdf`, `campaign_${cid}_report.pdf`);
+    });
+
+    // Employee Roster Management
+    async function loadEmployees() {
+      const tbody = document.getElementById('rosterTableBody') || document.getElementById('employees-tbody') || document.getElementById('employeeTableBody');
+      const assignEmpSelect = document.getElementById('assign-emp-select');
+      const search = (document.getElementById('rosterSearchInput') || document.getElementById('emp-search') || document.getElementById('searchInput'))?.value.trim() || '';
+      const riskFilter = (document.getElementById('rosterRiskFilter') || document.getElementById('emp-risk-filter') || document.getElementById('riskFilter'))?.value || '';
+      if (!tbody) return;
+
+      try {
+        const data = await apiFetch(`/api/employees?limit=200&search=${encodeURIComponent(search)}`);
+        let list = Array.isArray(data) ? data : (data.employees || data.data || []);
+
+        const kpiRecipients = document.getElementById('metricTotalRecipients') || document.getElementById('kpi-total-recipients') || document.getElementById('totalRecordsCount');
+        if (kpiRecipients) kpiRecipients.textContent = list.length;
+
+        if (riskFilter) {
+          list = list.filter((e) => (e.risk_level || '').toLowerCase().includes(riskFilter.toLowerCase()));
+        }
+
+        tbody.innerHTML = list
+          .map((emp) => {
+            const risk = emp.risk_level || 'Low (15% Risk)';
+            let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+            if (risk.includes('CRITICAL')) badgeColor = 'bg-rose-500/20 text-rose-400 border-rose-500/40 font-bold';
+            else if (risk.includes('High')) badgeColor = 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+            else if (risk.includes('Low')) badgeColor = 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+
+            return `
+              <tr>
+                <td class="py-2.5 px-3">
+                  <div class="font-semibold text-white">${escapeHtml(emp.name)}</div>
+                  <div class="text-[11px] text-slate-400">${escapeHtml(emp.email)}</div>
+                </td>
+                <td class="py-2.5 px-3 text-slate-300">${escapeHtml(emp.department || 'General')}</td>
+                <td class="py-2.5 px-3">
+                  <span class="px-2 py-0.5 rounded border text-[11px] ${badgeColor}">${escapeHtml(risk)}</span>
+                </td>
+                <td class="py-2.5 px-3">
+                  <span class="text-[11px] font-semibold ${
+                    emp.approval_status === 'Pending' ? 'text-amber-400' : 'text-emerald-400'
+                  }">
+                    ${escapeHtml(emp.approval_status || 'Approved')}
+                  </span>
+                </td>
+                <td class="py-2.5 px-3 text-right space-x-2">
+                  ${
+                    emp.approval_status === 'Pending'
+                      ? `<button data-approve-id="${emp.id}" class="approve-emp-btn px-2 py-0.5 bg-emerald-600 text-white rounded text-[11px]">Approve</button>`
+                      : ''
+                  }
+                  <button data-del-id="${emp.id}" class="del-emp-btn text-rose-400 hover:underline">Delete</button>
+                </td>
+              </tr>
+            `;
+          })
+          .join('');
+
+        tbody.querySelectorAll('.approve-emp-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            try {
+              await apiFetch(`/api/employees/${btn.dataset.approveId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ approval_status: 'Approved' }),
+              });
+              showToast('Employee approved!');
+              loadEmployees();
+              loadAuditLogs();
+            } catch (err) {
+              showToast(err.message, false);
+            }
+          });
+        });
+
+        tbody.querySelectorAll('.del-emp-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('Delete this employee target?')) return;
+            try {
+              await apiFetch(`/api/employees/${btn.dataset.delId}`, { method: 'DELETE' });
+              showToast('Employee deleted.');
+              loadEmployees();
+              loadAuditLogs();
+            } catch (err) {
+              showToast(err.message, false);
+            }
+          });
+        });
+
+        if (assignEmpSelect) {
+          assignEmpSelect.innerHTML = list
+            .map((e) => `<option value="${e.id}">${escapeHtml(e.name)} (${escapeHtml(e.email)}) — ${escapeHtml(e.risk_level)}</option>`)
+            .join('');
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="py-4 px-3 text-rose-400">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    const addEmpForm = document.getElementById('addEmployeeForm') || document.getElementById('createEmployeeForm') || document.getElementById('add-employee-form');
+    if (addEmpForm) {
+      addEmpForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await apiFetch('/api/employees', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: (document.getElementById('addEmpName') || document.getElementById('newEmpName') || document.getElementById('emp-name'))?.value.trim(),
+              email: (document.getElementById('addEmpEmail') || document.getElementById('newEmpEmail') || document.getElementById('emp-email'))?.value.trim(),
+              department: (document.getElementById('addEmpDept') || document.getElementById('newEmpDept') || document.getElementById('emp-dept'))?.value,
+            }),
+          });
+          addEmpForm.reset();
+          showToast('Target employee added.');
+          loadEmployees();
+          loadAuditLogs();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    const csvForm = document.getElementById('csvUploadForm') || document.getElementById('csv-upload-form');
+    if (csvForm) {
+      csvForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('csvFilePicker') || document.getElementById('csvFileInput') || document.getElementById('csv-file');
+        if (!fileInput || !fileInput.files.length) return;
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        try {
+          const res = await apiFetch('/api/employees/upload-csv', {
+            method: 'POST',
+            body: formData,
+          });
+          showToast(res.message || 'CSV imported successfully.');
+          csvForm.reset();
+          loadEmployees();
+          loadAuditLogs();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    (document.getElementById('rosterSearchInput') || document.getElementById('searchInput'))?.addEventListener('input', loadEmployees);
+    (document.getElementById('rosterRiskFilter') || document.getElementById('riskFilter'))?.addEventListener('change', loadEmployees);
+
+    // Resources & Campaign Management
+    async function loadCampaignResources() {
+      try {
+        const res = await apiFetch('/api/templates');
+        const templates = Array.isArray(res) ? res : (res.templates || res.data || []);
+        const tplSelect = document.getElementById('campTemplateSelect') || document.getElementById('camp-template');
+        if (tplSelect && templates.length) {
+          tplSelect.innerHTML = templates.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+        }
+      } catch {}
+
+      const defaultLandings = [
+        { id: 1, name: 'Microsoft Office 365 Clone' },
+        { id: 2, name: 'Google Workspace Clone' },
+        { id: 3, name: 'Axis Bank NetBanking Clone' },
+        { id: 4, name: 'Jio 5G SIM e-KYC Clone' },
+        { id: 5, name: 'MrBreast YouTube Collab Invite' },
+      ];
+      const lpSelect = document.getElementById('campLandingSelect') || document.getElementById('camp-landing');
+      if (lpSelect) {
+        lpSelect.innerHTML = defaultLandings.map((l) => `<option value="${l.id}">${escapeHtml(l.name)}</option>`).join('');
+      }
+    }
+
+    async function loadCampaigns() {
+      const tbody = document.getElementById('campaignTableBody') || document.getElementById('campaigns-tbody');
+      if (!tbody) return;
+      try {
+        const data = await apiFetch('/api/campaigns');
+        const list = Array.isArray(data) ? data : (data.campaigns || data.data || []);
+
+        if (analyticsSelect) {
+          analyticsSelect.innerHTML = [
+            '<option value="all">🏢 Organization-Wide Executive Rollup (All Campaigns)</option>',
+            ...list.map((c) => `<option value="${c.id}">#${c.id} — ${escapeHtml(c.name)} (${escapeHtml(c.status)})</option>`)
+          ].join('');
+
+          loadCampaignFunnelAndKPIs('all');
+        }
+
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="py-4 px-3 text-slate-500 text-center">No campaigns found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list
+          .map((c) => `
+            <tr data-campaign-row="${c.id}">
+              <td class="py-2.5 px-3 font-semibold text-white">
+                <div>${escapeHtml(c.name)}</div>
+                <div class="text-[11px] font-mono text-slate-400">#${c.id} • ${new Date(c.created_at).toLocaleDateString()}</div>
+              </td>
+              <td class="py-2.5 px-3">
+                <span class="px-2 py-0.5 rounded ${
+                  c.status === 'Completed'
+                    ? 'bg-slate-800 text-emerald-400'
+                    : c.status === 'Running'
+                    ? 'bg-blue-900/40 text-blue-400 border border-blue-500/30'
+                    : 'bg-amber-900/30 text-amber-400 border border-amber-500/30'
+                } text-[11px]">${escapeHtml(c.status)}</span>
+              </td>
+              <td class="py-2.5 px-3 text-slate-400 text-xs">${escapeHtml(c.template_name || 'Standard Template')}</td>
+              <td class="py-2.5 px-3 text-right space-x-2">
+                <button data-send-id="${c.id}" data-camp-name="${escapeHtml(c.name)}" class="send-camp-btn px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[11px] font-semibold transition">
+                  🚀 Dispatch
+                </button>
+                <button data-pdf-id="${c.id}" class="pdf-camp-btn px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px]">PDF</button>
+                <button data-csv-id="${c.id}" class="csv-camp-btn px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-[11px]">CSV</button>
+              </td>
+            </tr>
+          `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-4 px-3 text-rose-400">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    const campaignsTbody = document.getElementById('campaignTableBody') || document.getElementById('campaigns-tbody');
+    if (campaignsTbody && !campaignsTbody.dataset.listenerAttached) {
+      campaignsTbody.dataset.listenerAttached = 'true';
+
+      campaignsTbody.addEventListener('click', async (e) => {
+        const sendBtn = e.target.closest('.send-camp-btn');
+        const pdfBtn = e.target.closest('.pdf-camp-btn');
+        const csvBtn = e.target.closest('.csv-camp-btn');
+
+        if (sendBtn) {
+          const campId = sendBtn.dataset.sendId;
+          const campName = sendBtn.dataset.campName || `Campaign #${campId}`;
+
+          const confirmed = confirm(`Are you sure you want to dispatch "${campName}" to target employees now?`);
+          if (!confirmed) return;
+
+          const originalText = sendBtn.innerHTML;
+          sendBtn.disabled = true;
+          sendBtn.innerHTML = '⏳ Sending...';
+
+          const fromName = document.getElementById('customSenderMask')?.value.trim() || undefined;
+          const fromAlias = document.getElementById('customSenderAlias')?.value.trim() || undefined;
+
+          try {
+            showToast(`Dispatching ${campName}... Please wait.`);
+            const res = await apiFetch(`/api/campaigns/${campId}/send`, {
+              method: 'POST',
+              body: JSON.stringify({ fromName, fromAlias }),
+            });
+            showToast(res.message || 'Campaign dispatched successfully!');
+            await loadCampaigns();
+            await loadAuditLogs();
+          } catch (err) {
+            showToast(err.message || 'Failed to dispatch campaign', false);
+            alert(`Dispatch Error: ${err.message}`);
+          } finally {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalText;
+          }
+          return;
+        }
+
+        if (pdfBtn) {
+          downloadProtectedReport(`/api/reports/campaign/${pdfBtn.dataset.pdfId}/pdf`, `campaign_${pdfBtn.dataset.pdfId}.pdf`);
+          return;
+        }
+
+        if (csvBtn) {
+          downloadProtectedReport(`/api/reports/campaign/${csvBtn.dataset.csvId}/csv`, `campaign_${csvBtn.dataset.csvId}.csv`);
+          return;
+        }
+      });
+    }
+
+    const createCampForm = document.getElementById('createCampaignForm') || document.getElementById('create-campaign-form');
+    if (createCampForm) {
+      createCampForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await apiFetch('/api/campaigns', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: (document.getElementById('campNameInput') || document.getElementById('camp-name'))?.value.trim(),
+              description: (document.getElementById('campDescInput') || document.getElementById('camp-desc'))?.value.trim(),
+              template_id: Number((document.getElementById('campTemplateSelect') || document.getElementById('camp-template'))?.value) || 1,
+              landing_page_id: Number((document.getElementById('campLandingSelect') || document.getElementById('camp-landing'))?.value) || 1,
+              department: document.getElementById('camp-target-dept')?.value || 'ALL',
+            }),
+          });
+          showToast('Campaign created!');
+          createCampForm.reset();
+          loadCampaigns();
+          loadAuditLogs();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    // Gemini AI Phishing Pretext Generator
+    const triggerAiBtn = document.getElementById('triggerAiGenerationBtn');
+    if (triggerAiBtn) {
+      triggerAiBtn.addEventListener('click', async () => {
+        const preview = document.getElementById('aiResultArea') || document.getElementById('ai-template-preview');
+        try {
+          const res = await apiFetch('/api/ai/generate-email', {
+            method: 'POST',
+            body: JSON.stringify({
+              department: document.getElementById('aiDeptInput')?.value.trim() || 'General',
+              urgency: document.getElementById('aiUrgencyInput')?.value || 'Medium',
+              pretext: document.getElementById('aiScenarioInput')?.value.trim() || 'Security Update',
+              scenario: document.getElementById('aiScenarioInput')?.value.trim() || 'Security Update',
+            }),
+          });
+          if (preview) {
+            preview.classList.remove('hidden');
+            preview.innerHTML = `
+              <div class="font-bold text-indigo-400">Subject: ${escapeHtml(res.subject || res.template?.subject || 'Generated Pretext')}</div>
+              <div class="text-slate-300 mt-1">${res.body_html || res.template?.body_html || ''}</div>
+            `;
+          }
+          showToast('AI Pretext generated and saved to Templates!');
+          loadCampaignResources();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    // Quiz Management & Isolated Link Assignment
+    async function loadAdminQuizzes() {
+      const selectEl = document.getElementById('assign-quiz-select');
+      const listEl = document.getElementById('adminQuizzesList') || document.getElementById('admin-quizzes-list');
+      try {
+        const res = await apiFetch('/api/quizzes');
+        const quizzes = Array.isArray(res) ? res : (res.quizzes || []);
+        if (selectEl) {
+          selectEl.innerHTML = quizzes.map((q) => `<option value="${q.id}">${escapeHtml(q.title)} (Pass: ${q.pass_score}%)</option>`).join('');
+        }
+        if (listEl) {
+          listEl.innerHTML = quizzes.map((q) => `
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl flex justify-between items-center">
+              <div>
+                <div class="font-semibold text-white text-xs">${escapeHtml(q.title)}</div>
+                <div class="text-[11px] text-slate-400">Module: ${escapeHtml(q.module_title || q.title)} • Pass Score: ${q.pass_score}%</div>
+              </div>
+              <span class="text-[11px] font-mono text-emerald-400">${q.question_count || 7} MCQs</span>
+            </div>
+          `).join('');
+        }
+      } catch {}
+    }
+
+    const createQuizForm = document.getElementById('createQuizForm') || document.getElementById('create-quiz-form');
+    if (createQuizForm) {
+      createQuizForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          await apiFetch('/api/quizzes/create', {
+            method: 'POST',
+            body: JSON.stringify({
+              module_title: (document.getElementById('newModTitle') || document.getElementById('new-mod-title'))?.value.trim(),
+              module_content: (document.getElementById('newModContent') || document.getElementById('new-mod-content'))?.value.trim(),
+              title: (document.getElementById('newQuizTitle') || document.getElementById('new-quiz-title'))?.value.trim(),
+              pass_score: Number((document.getElementById('newQuizPassScore') || document.getElementById('new-quiz-pass'))?.value) || 70,
+              questions: [
+                {
+                  question: (document.getElementById('newQText') || document.getElementById('new-q-text'))?.value.trim(),
+                  option_a: (document.getElementById('newQOptA') || document.getElementById('new-q-a'))?.value.trim(),
+                  option_b: (document.getElementById('newQOptB') || document.getElementById('new-q-b'))?.value.trim(),
+                  option_c: (document.getElementById('newQOptC') || document.getElementById('new-q-c'))?.value.trim(),
+                  option_d: (document.getElementById('newQOptD') || document.getElementById('new-q-d'))?.value.trim(),
+                  correct_option: (document.getElementById('newQCorrect') || document.getElementById('new-q-correct'))?.value,
+                },
+              ],
+            }),
+          });
+          showToast('New Training Module & Quiz published!');
+          createQuizForm.reset();
+          loadAdminQuizzes();
+          loadAuditLogs();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    const assignQuizForm = document.getElementById('assign-quiz-form');
+    if (assignQuizForm) {
+      assignQuizForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const employee_id = document.getElementById('assign-emp-select')?.value;
+        const quiz_id = document.getElementById('assign-quiz-select')?.value;
+        const previewBox = document.getElementById('assigned-link-preview');
+        try {
+          const res = await apiFetch('/api/quizzes/assign', {
+            method: 'POST',
+            body: JSON.stringify({ employee_id, quiz_id }),
+          });
+          showToast(res.message);
+          if (previewBox && res.trainingPortalLink) {
+            previewBox.classList.remove('hidden');
+            previewBox.innerHTML = `
+              <div class="text-emerald-400 font-semibold">✅ Isolated Training Portal Link Dispatched:</div>
+              <a href="${res.trainingPortalLink}" class="text-blue-400 underline break-all">${res.trainingPortalLink}</a>
+              <p class="text-[11px] text-slate-400 mt-1">Clicking this link clears any active Admin session and forces Employee login.</p>
+            `;
+          }
+          loadAuditLogs();
+        } catch (err) {
+          showToast(err.message, false);
+        }
+      });
+    }
+
+    // Cross-Department Vulnerability Matrix & AI Risk Assessment
+    async function loadAnalytics() {
+      const deptContainer = document.getElementById('deptMatrixTableBody') || document.getElementById('dept-matrix-container');
+      try {
+        const depts = await apiFetch('/api/analytics/departments');
+        const rows = Array.isArray(depts) ? depts : (depts.departments || depts.data || []);
+        if (deptContainer) {
+          deptContainer.innerHTML = rows.map((d) => `
+            <tr>
+              <td class="p-3 font-semibold text-white">${escapeHtml(d.department)}</td>
+              <td class="p-3">${d.totalTargeted ?? d.totalEmployees ?? d.total_targeted ?? d.total_employees ?? 0}</td>
+              <td class="p-3 text-amber-400">${d.clickRate ?? d.totalClicked ?? 0}%</td>
+              <td class="p-3 text-rose-400 font-bold">${d.compromiseRate ?? d.totalCompromised ?? 0}%</td>
+            </tr>
+          `).join('');
+        }
+      } catch {}
+    }
+
+    const aiRiskBtn = document.getElementById('runAiRiskAnalysisBtn') || document.getElementById('run-ai-risk-btn');
+    if (aiRiskBtn) {
+      aiRiskBtn.addEventListener('click', async () => {
+        const out = document.getElementById('aiRiskAnalysisBox') || document.getElementById('ai-risk-output');
+        if (out) out.textContent = 'Running Gemini AI risk assessment...';
+        try {
+          const data = await apiFetch('/api/ai/risk-analysis');
+          const info = data.analysis || data.data || data;
+          if (out) {
+            if (info && info.executiveSummary) {
+              out.innerHTML = `
+                <div class="space-y-2">
+                  <div class="text-white font-semibold">${escapeHtml(info.executiveSummary)}</div>
+                  <ul class="list-disc pl-4 text-slate-300 space-y-1">
+                    ${(info.recommendations || []).map((r) => `<li>${escapeHtml(r)}</li>`).join('')}
+                  </ul>
+                </div>
+              `;
+            } else {
+              out.innerHTML = `<pre class="whitespace-pre-wrap text-xs text-slate-200">${
+                typeof info === 'string' ? escapeHtml(info) : escapeHtml(JSON.stringify(info, null, 2))
+              }</pre>`;
+            }
+          }
+        } catch (err) {
+          if (out) out.textContent = err.message;
+        }
+      });
+    }
+
+    // Paginated Audit Logs Explorer
+    let currentAuditPage = 1;
+    let totalAuditPages = 1;
+
+    async function loadAuditLogs(pageNum = currentAuditPage) {
+      const tbody = document.getElementById('auditLogsTableBody') || document.getElementById('audit-logs-tbody');
+      if (!tbody) return;
+
+      const search = document.getElementById('audit-search-input')?.value.trim() || '';
+      const action = document.getElementById('audit-action-filter')?.value || 'ALL';
+      const role = document.getElementById('audit-role-filter')?.value || 'ALL';
+      const limit = Number(document.getElementById('audit-limit-select')?.value || 100);
+
+      try {
+        const qs = new URLSearchParams({
+          page: String(pageNum),
+          limit: String(limit),
+          action,
+          role,
+          search,
+        });
+        const data = await apiFetch(`/api/audit-logs?${qs.toString()}`);
+        const logs = Array.isArray(data) ? data : (data.logs || data.data || []);
+
+        currentAuditPage = data.page || data.pagination?.currentPage || 1;
+        totalAuditPages = data.totalPages || data.pagination?.totalPages || 1;
+
+        if (!logs.length) {
+          tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">No matching audit logs found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = logs.map((l) => `
+          <tr class="hover:bg-slate-900/80">
+            <td class="p-3.5 text-slate-400 whitespace-nowrap">${new Date(l.created_at).toLocaleString()}</td>
+            <td class="p-3.5 text-slate-200">${escapeHtml(l.actor_email || (l.user_id ? `Admin #${l.user_id}` : 'System'))}</td>
+            <td class="p-3.5"><span class="px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 font-semibold">${escapeHtml(l.action)}</span></td>
+            <td class="p-3.5 font-mono text-slate-500">${escapeHtml(l.ip_address || '127.0.0.1')}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-rose-400">${escapeHtml(err.message)}</td></tr>`;
+      }
+    }
+
+    document.getElementById('refresh-audit-btn')?.addEventListener('click', () => loadAuditLogs(1));
+
+    // Initial Dashboard Bootstrap
+    loadEmployees();
+    loadCampaignResources();
+    loadCampaigns();
+    loadHeatmapMatrix();
+    loadAdminQuizzes();
+    loadAnalytics();
+    loadAuditLogs(1);
+  }
+})();
