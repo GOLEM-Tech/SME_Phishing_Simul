@@ -3,270 +3,255 @@
 const fs = require('fs');
 const csv = require('csv-parser');
 const pool = require('../config/db');
+const logAction = require('../utils/auditLogger');
 
-/**
- * GET /api/employees
- * Returns approved employees with search, department, risk_level filtering & pagination.
- */
+// GET /api/employees
+// Supports ?search=...&department=...&risk_level=...&page=1&limit=100
 exports.getAllEmployees = async (req, res) => {
   try {
-    const { search, department, risk_level } = req.query;
-    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const search = (req.query.search || '').trim();
+    const department = (req.query.department || '').trim();
+    const riskLevel = (req.query.risk_level || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 100, 1), 500);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const offset = (page - 1) * limit;
 
-    let baseQuery = "FROM Employees WHERE (approval_status IS NULL OR approval_status = 'Approved')";
-    const queryParams = [];
+    const conditions = [];
+    const params = [];
 
     if (search) {
-      baseQuery += ' AND (name LIKE ? OR email LIKE ?)';
-      queryParams.push(`%${search}%`, `%${search}%`);
+      conditions.push('(name LIKE ? OR email LIKE ? OR department LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (department && department !== 'ALL') {
+      conditions.push('department = ?');
+      params.push(department);
+    }
+    if (riskLevel) {
+      conditions.push('risk_level LIKE ?');
+      params.push(`%${riskLevel}%`);
     }
 
-    if (department) {
-      baseQuery += ' AND department = ?';
-      queryParams.push(department);
-    }
+    const whereSql = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
 
-    if (risk_level) {
-      baseQuery += ' AND risk_level = ?';
-      queryParams.push(risk_level);
-    }
-
-    const [countResult] = await pool.query(`SELECT COUNT(*) AS total ${baseQuery}`, queryParams);
-    const totalRecords = countResult[0].total;
-    const totalPages = Math.ceil(totalRecords / limit) || 1;
-
-    const dataQuery = `
-      SELECT id, name, email, department, risk_level, approval_status, created_at, updated_at
-      ${baseQuery}
-      ORDER BY created_at DESC
-      LIMIT ? OFFSET ?
-    `;
-    const [rows] = await pool.query(dataQuery, [...queryParams, limit, offset]);
-
-    return res.status(200).json({
-      success: true,
-      pagination: {
-        totalRecords,
-        totalPages,
-        currentPage: page,
-        limit
-      },
-      employees: rows,
-      data: rows
-    });
-  } catch (error) {
-    console.error('Error fetching employees:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Internal server error while fetching employees.'
-    });
-  }
-};
-
-/**
- * GET /api/employees/pending
- * Lists OAuth-registered employees awaiting Admin approval.
- */
-exports.getPendingEmployees = async (req, res) => {
-  try {
-    const [rows] = await pool.execute(
-      `SELECT id, name, email, department, risk_level, approval_status, created_at
+    const [rows] = await pool.query(
+      `SELECT id, name, email, department, risk_level, COALESCE(approval_status, 'Approved') AS approval_status, created_at
        FROM Employees
-       WHERE approval_status = 'Pending'
-       ORDER BY created_at DESC`
+       ${whereSql}
+       ORDER BY id DESC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    const [[countRow]] = await pool.query(
+      `SELECT COUNT(*) AS total FROM Employees ${whereSql}`,
+      params
     );
 
     return res.status(200).json({
-      success: true,
-      count: rows.length,
-      pendingEmployees: rows
+      employees: rows,
+      data: rows,
+      total: countRow.total,
+      page,
+      limit,
     });
-  } catch (error) {
-    console.error('Error fetching pending employees:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to fetch pending OAuth employees.'
-    });
+  } catch (err) {
+    console.error('[GetAllEmployees Error]:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve employees.' });
   }
 };
 
-/**
- * PUT /api/employees/:id/approve
- * Approves a pending OAuth employee and optionally updates their department.
- */
-exports.approveEmployee = async (req, res) => {
+// GET /api/employees/:id
+exports.getEmployeeById = async (req, res) => {
+  const { id } = req.params;
   try {
-    const employeeId = parseInt(req.params.id, 10);
-    const { department } = req.body;
+    const [rows] = await pool.execute(
+      `SELECT id, name, email, department, risk_level, COALESCE(approval_status, 'Approved') AS approval_status, created_at
+       FROM Employees
+       WHERE id = ? LIMIT 1`,
+      [id]
+    );
 
-    if (department) {
-      await pool.execute(
-        "UPDATE Employees SET approval_status = 'Approved', department = ? WHERE id = ?",
-        [department.trim(), employeeId]
-      );
-    } else {
-      await pool.execute(
-        "UPDATE Employees SET approval_status = 'Approved' WHERE id = ?",
-        [employeeId]
-      );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found.' });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: 'Employee approved and added to active directory.'
-    });
-  } catch (error) {
-    console.error('Error approving employee:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Failed to approve employee.'
-    });
+    return res.status(200).json({ employee: rows[0], data: rows[0] });
+  } catch (err) {
+    console.error('[GetEmployeeById Error]:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve employee record.' });
   }
 };
 
-/**
- * POST /api/employees
- */
+// POST /api/employees
 exports.createEmployee = async (req, res) => {
+  const { name, email, department, risk_level } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required.' });
+  }
+
   try {
-    const { name, email, department, risk_level } = req.body;
-    if (!name || !email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Name and email are required.'
-      });
-    }
-
-    const normalizedEmail = String(email).trim().toLowerCase();
-    const [existing] = await pool.execute('SELECT id FROM Employees WHERE LOWER(email) = ?', [normalizedEmail]);
-    if (existing.length > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'Employee with this email already exists.'
-      });
-    }
-
+    const cleanEmail = email.trim().toLowerCase();
     const [result] = await pool.execute(
       `INSERT INTO Employees (name, email, department, risk_level, approval_status)
        VALUES (?, ?, ?, ?, 'Approved')`,
-      [name.trim(), normalizedEmail, (department || 'General').trim(), risk_level || 'Low']
+      [name.trim(), cleanEmail, department || 'General', risk_level || 'Perfect (0% Risk)']
+    );
+
+    await logAction(
+      req.user?.id || null,
+      'EMPLOYEE_CREATED',
+      { employeeId: result.insertId, name: name.trim(), email: cleanEmail, department: department || 'General' },
+      ip,
+      { sessionId: req.user?.sessionId, actorEmail: req.user?.email, role: req.user?.role || 'Admin' }
     );
 
     return res.status(201).json({
-      success: true,
       message: 'Employee created successfully.',
-      employeeId: result.insertId
+      id: result.insertId,
+      employeeId: result.insertId,
     });
-  } catch (error) {
-    console.error('Error creating employee:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Internal server error.'
-    });
-  }
-};
-
-/**
- * GET /api/employees/:id
- */
-exports.getEmployeeById = async (req, res) => {
-  try {
-    const [rows] = await pool.execute('SELECT * FROM Employees WHERE id = ?', [req.params.id]);
-    if (rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Employee not found.' });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'An employee with this email already exists.' });
     }
-    return res.status(200).json({ success: true, data: rows[0] });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    console.error('[CreateEmployee Error]:', err.message);
+    return res.status(500).json({ error: 'Failed to create employee.' });
   }
 };
 
-/**
- * PUT /api/employees/:id
- */
+// PUT /api/employees/:id
 exports.updateEmployee = async (req, res) => {
+  const { id } = req.params;
+  const { name, email, department, risk_level, approval_status } = req.body;
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+
   try {
-    const { name, department, risk_level } = req.body;
+    const [existingRows] = await pool.execute('SELECT * FROM Employees WHERE id = ? LIMIT 1', [id]);
+    if (existingRows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+    const existing = existingRows[0];
+
+    const updatedName = name !== undefined ? name : existing.name;
+    const updatedEmail = email !== undefined ? email.trim().toLowerCase() : existing.email;
+    const updatedDept = department !== undefined ? department : existing.department;
+    const updatedRisk = risk_level !== undefined ? risk_level : existing.risk_level;
+    const updatedApproval = approval_status !== undefined ? approval_status : existing.approval_status;
+
     await pool.execute(
       `UPDATE Employees
-       SET name = COALESCE(?, name),
-           department = COALESCE(?, department),
-           risk_level = COALESCE(?, risk_level)
+       SET name = ?, email = ?, department = ?, risk_level = ?, approval_status = ?
        WHERE id = ?`,
-      [name ?? null, department ?? null, risk_level ?? null, req.params.id]
+      [updatedName, updatedEmail, updatedDept, updatedRisk, updatedApproval, id]
     );
-    return res.status(200).json({ success: true, message: 'Employee updated successfully.' });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+
+    const actionType =
+      approval_status === 'Approved' && existing.approval_status !== 'Approved'
+        ? 'EMPLOYEE_APPROVED'
+        : 'EMPLOYEE_UPDATED';
+
+    await logAction(
+      req.user?.id || null,
+      actionType,
+      {
+        employeeId: Number(id),
+        email: updatedEmail,
+        department: updatedDept,
+        approval_status: updatedApproval,
+      },
+      ip,
+      { sessionId: req.user?.sessionId, actorEmail: req.user?.email, role: req.user?.role || 'Admin' }
+    );
+
+    return res.status(200).json({ message: 'Employee updated successfully.' });
+  } catch (err) {
+    console.error('[UpdateEmployee Error]:', err.message);
+    return res.status(500).json({ error: 'Failed to update employee.' });
   }
 };
 
-/**
- * DELETE /api/employees/:id
- */
+// DELETE /api/employees/:id
 exports.deleteEmployee = async (req, res) => {
+  const { id } = req.params;
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+
   try {
-    await pool.execute('DELETE FROM Employees WHERE id = ?', [req.params.id]);
-    return res.status(200).json({ success: true, message: 'Employee removed successfully.' });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Internal server error.' });
+    const [empRows] = await pool.execute('SELECT name, email, department FROM Employees WHERE id = ? LIMIT 1', [id]);
+    if (empRows.length === 0) {
+      return res.status(404).json({ error: 'Employee not found.' });
+    }
+
+    await pool.execute('DELETE FROM Employees WHERE id = ?', [id]);
+
+    await logAction(
+      req.user?.id || null,
+      'EMPLOYEE_DELETED',
+      { employeeId: Number(id), deletedName: empRows[0].name, deletedEmail: empRows[0].email },
+      ip,
+      { sessionId: req.user?.sessionId, actorEmail: req.user?.email, role: req.user?.role || 'Admin' }
+    );
+
+    return res.status(200).json({ message: 'Employee deleted successfully.' });
+  } catch (err) {
+    console.error('[DeleteEmployee Error]:', err.message);
+    return res.status(500).json({ error: 'Failed to delete employee.' });
   }
 };
 
-/**
- * POST /api/employees/upload-csv
- */
+// POST /api/employees/upload-csv
 exports.uploadCSV = async (req, res) => {
+  const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+
   if (!req.file) {
-    return res.status(400).json({ success: false, message: 'Please upload a valid CSV file.' });
+    return res.status(400).json({ error: 'No CSV file uploaded.' });
   }
 
-  const results = [];
   const filePath = req.file.path;
+  const rows = [];
 
   fs.createReadStream(filePath)
     .pipe(csv())
-    .on('data', (row) => {
-      const name = row.name || row.Name;
-      const email = row.email || row.Email;
-      const department = row.department || row.Department || 'General';
-      const risk_level = row.risk_level || row.RiskLevel || 'Low';
-      if (name && email) {
-        results.push({
-          name: String(name).trim(),
-          email: String(email).trim().toLowerCase(),
-          department: String(department).trim(),
-          risk_level: ['Low', 'Medium', 'High'].includes(risk_level) ? risk_level : 'Low'
-        });
-      }
-    })
+    .on('data', (data) => rows.push(data))
     .on('end', async () => {
+      let imported = 0;
       try {
-        let affected = 0;
-        for (const emp of results) {
-          await pool.execute(
-            `INSERT INTO Employees (name, email, department, risk_level, approval_status)
-             VALUES (?, ?, ?, ?, 'Approved')
-             ON DUPLICATE KEY UPDATE
-               name = VALUES(name),
-               department = VALUES(department),
-               approval_status = 'Approved'`,
-            [emp.name, emp.email, emp.department, emp.risk_level]
-          );
-          affected++;
+        for (const r of rows) {
+          const name = (r.name || r.Name || '').trim();
+          const email = (r.email || r.Email || '').trim().toLowerCase();
+          const department = (r.department || r.Department || 'General').trim();
+          const risk = (r.risk_level || r.RiskLevel || 'Perfect (0% Risk)').trim();
+
+          if (name && email) {
+            await pool.execute(
+              `INSERT INTO Employees (name, email, department, risk_level, approval_status)
+               VALUES (?, ?, ?, ?, 'Approved')
+               ON DUPLICATE KEY UPDATE name = VALUES(name), department = VALUES(department)`,
+              [name, email, department, risk]
+            );
+            imported++;
+          }
         }
+
+        await logAction(
+          req.user?.id || null,
+          'CSV_ROSTER_IMPORTED',
+          { filename: req.file.originalname, rowsProcessed: rows.length, importedCount: imported },
+          ip,
+          { sessionId: req.user?.sessionId, actorEmail: req.user?.email, role: req.user?.role || 'Admin' }
+        );
+
         fs.unlink(filePath, () => {});
         return res.status(200).json({
-          success: true,
-          message: 'CSV processed successfully.',
-          totalRows: results.length,
-          affectedRows: affected
+          message: `Successfully imported ${imported} employees from CSV.`,
+          imported,
         });
-      } catch (dbErr) {
+      } catch (err) {
         fs.unlink(filePath, () => {});
-        return res.status(500).json({ success: false, message: 'Database error during CSV import.' });
+        console.error('[CSV Import Error]:', err.message);
+        return res.status(500).json({ error: 'Failed to import CSV rows.' });
       }
     });
 };

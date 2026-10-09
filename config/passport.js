@@ -1,3 +1,4 @@
+/* eslint-env node */
 'use strict';
 
 require('dotenv').config();
@@ -7,22 +8,15 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const GitHubStrategy = require('passport-github2').Strategy;
 const pool = require('./db');
 
-// Automatically ensure `approval_status` column exists on Employees table
-(async function ensureApprovalColumn() {
-  try {
-    await pool.execute(
-      "ALTER TABLE Employees ADD COLUMN approval_status VARCHAR(20) NOT NULL DEFAULT 'Approved'"
-    );
-    console.log('[DB Migration] Added approval_status column to Employees table.');
-  } catch (err) {
-    // Ignore ER_DUP_FIELDNAME (1060) if column already exists
-    if (err.errno !== 1060) {
-      console.warn('[DB Migration Notice]:', err.message);
-    }
-  }
-})();
+// Explicit admin allowlist to prevent accidental privilege escalation
+const ADMIN_EMAILS = [
+  'omjalela4@gmail.com',
+  'sharmistabar@gmail.com',
+  'maitreyajadhav@gmail.com',
+  'abdulhannan@gmail.com'
+];
 
-// --- 1. Passport JWT Strategy (Supports both Admin Users and Employees) ---
+// --- 1. Passport JWT Strategy ---
 const jwtOptions = {
   jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
   secretOrKey: process.env.JWT_SECRET || 'super_secret_key',
@@ -31,101 +25,108 @@ const jwtOptions = {
 passport.use(
   new JwtStrategy(jwtOptions, async (jwtPayload, done) => {
     try {
-      if (jwtPayload.role === 'Employee') {
+      const role = jwtPayload.role || 'Admin';
+
+      // 1. If payload explicitly specifies Employee, look in Employees table
+      if (role === 'Employee') {
         const [empRows] = await pool.execute(
-          'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE id = ?',
-          [jwtPayload.employeeId || jwtPayload.id]
+          'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE id = ? LIMIT 1',
+          [jwtPayload.id]
         );
         if (empRows.length > 0) {
-          return done(null, { ...empRows[0], role: 'Employee', employeeId: empRows[0].id });
+          return done(null, {
+            ...empRows[0],
+            role: 'Employee',
+            sessionId: jwtPayload.sessionId || null,
+          });
         }
-        return done(null, false);
       }
 
-      const [rows] = await pool.execute(
-        'SELECT id, name, email, role FROM Users WHERE id = ?',
+      // 2. Query Users table (Admin accounts)
+      const [userRows] = await pool.execute(
+        'SELECT id, name, email, role FROM Users WHERE id = ? LIMIT 1',
         [jwtPayload.id]
       );
-
-      if (rows.length > 0) {
-        return done(null, rows[0]);
+      if (userRows.length > 0) {
+        return done(null, {
+          ...userRows[0],
+          role: userRows[0].role || 'Admin',
+          sessionId: jwtPayload.sessionId || null,
+        });
       }
+
+      // 3. Fallback to Employees table
+      const [fallbackEmp] = await pool.execute(
+        'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE id = ? LIMIT 1',
+        [jwtPayload.id]
+      );
+      if (fallbackEmp.length > 0) {
+        return done(null, {
+          ...fallbackEmp[0],
+          role: 'Employee',
+          sessionId: jwtPayload.sessionId || null,
+        });
+      }
+
       return done(null, false);
     } catch (error) {
+      console.error('[Passport JWT Strategy Error]:', error.message);
       return done(error, false);
     }
   })
 );
 
-/**
- * Resolves OAuth logins:
- * 1. If the user's email exists in `Users`, authenticate them as an Admin.
- * 2. Otherwise, NEVER make them an Admin. Upsert them into `Employees` with
- *    `approval_status = 'Pending'` so they can choose their department and await Admin approval.
- */
+// --- Safe OAuth Upsert Engine ---
 async function handleOAuthUser(provider, profileId, name, email) {
-  const normalizedEmail = email ? String(email).trim().toLowerCase() : `${provider}_${profileId}@oauth.local`;
-  const displayName = name ? String(name).trim() : 'OAuth Employee';
+  const normalizedEmail = (email || '').toLowerCase().trim();
+  const isAdmin = ADMIN_EMAILS.includes(normalizedEmail);
 
-  // 1. Check if this person is an authorized Admin in `Users`
-  const [adminByOAuth] = await pool.execute(
-    'SELECT id, name, email, role FROM Users WHERE oauth_provider = ? AND oauth_id = ? LIMIT 1',
-    [provider, profileId]
-  );
-  if (adminByOAuth.length > 0) {
-    return { ...adminByOAuth[0], role: 'Admin' };
-  }
-
-  const [adminByEmail] = await pool.execute(
-    'SELECT id, name, email, role FROM Users WHERE LOWER(email) = ? LIMIT 1',
-    [normalizedEmail]
-  );
-  if (adminByEmail.length > 0) {
-    await pool.execute(
-      'UPDATE Users SET oauth_provider = ?, oauth_id = ? WHERE id = ?',
-      [provider, profileId, adminByEmail[0].id]
+  if (isAdmin) {
+    // Check or upsert into Users table as Admin
+    const [existingAdmin] = await pool.execute(
+      'SELECT id, name, email, role FROM Users WHERE email = ? LIMIT 1',
+      [normalizedEmail]
     );
-    return { ...adminByEmail[0], role: 'Admin' };
+
+    if (existingAdmin.length > 0) {
+      await pool.execute(
+        'UPDATE Users SET oauth_provider = ?, oauth_id = ? WHERE id = ?',
+        [provider, profileId, existingAdmin[0].id]
+      );
+      return { ...existingAdmin[0], role: 'Admin' };
+    }
+
+    const [newAdmin] = await pool.execute(
+      'INSERT INTO Users (name, email, role, oauth_provider, oauth_id) VALUES (?, ?, ?, ?, ?)',
+      [name || 'Admin', normalizedEmail, 'Admin', provider, profileId]
+    );
+    return { id: newAdmin.insertId, name: name || 'Admin', email: normalizedEmail, role: 'Admin' };
   }
 
-  // 2. Not an Admin -> Check if they already exist in `Employees`
-  const [empRows] = await pool.execute(
-    'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE LOWER(email) = ? LIMIT 1',
+  // Non-admin email: MUST be treated as an Employee
+  const [existingEmp] = await pool.execute(
+    'SELECT id, name, email, department, risk_level, approval_status FROM Employees WHERE email = ? LIMIT 1',
     [normalizedEmail]
   );
 
-  if (empRows.length > 0) {
-    const emp = empRows[0];
-    return {
-      id: emp.id,
-      employeeId: emp.id,
-      name: emp.name,
-      email: emp.email,
-      department: emp.department,
-      risk_level: emp.risk_level,
-      approval_status: emp.approval_status || 'Approved',
-      needsDepartment: emp.department === 'Unassigned',
-      role: 'Employee'
-    };
+  if (existingEmp.length > 0) {
+    return { ...existingEmp[0], role: 'Employee' };
   }
 
-  // 3. Brand new OAuth user -> Insert into `Employees` as Pending & Unassigned department
-  const [insertEmp] = await pool.execute(
-    `INSERT INTO Employees (name, email, department, risk_level, approval_status)
-     VALUES (?, ?, 'Unassigned', 'Low', 'Pending')`,
-    [displayName, normalizedEmail]
+  // Auto-register new employee under UNDETERMINED risk
+  const [newEmp] = await pool.execute(
+    'INSERT INTO Employees (name, email, department, risk_level, approval_status) VALUES (?, ?, ?, ?, ?)',
+    [name || 'Employee', normalizedEmail, 'General', 'UNDETERMINED', 'Approved']
   );
 
   return {
-    id: insertEmp.insertId,
-    employeeId: insertEmp.insertId,
-    name: displayName,
+    id: newEmp.insertId,
+    name: name || 'Employee',
     email: normalizedEmail,
-    department: 'Unassigned',
-    risk_level: 'Low',
-    approval_status: 'Pending',
-    needsDepartment: true,
-    role: 'Employee'
+    department: 'General',
+    risk_level: 'UNDETERMINED',
+    approval_status: 'Approved',
+    role: 'Employee',
   };
 }
 

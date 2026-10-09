@@ -1,3 +1,4 @@
+/* eslint-env node */
 'use strict';
 
 require('dotenv').config();
@@ -6,65 +7,85 @@ const cors = require('cors');
 const path = require('path');
 const passport = require('./config/passport');
 
-// Core Controllers (Needed for background automation engine)
-const campaignController = require('./controllers/campaignController');
-
-// Route Handlers
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
+const campaignRoutes = require('./routes/campaignRoutes');
 const trackingRoutes = require('./routes/trackingRoutes');
-const auditLogRoutes = require('./routes/auditLogRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const templateRoutes = require('./routes/templateRoutes');
-const campaignRoutes = require('./routes/campaignRoutes');
 const landingRoutes = require('./routes/landingRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const quizRoutes = require('./routes/quizRoutes');
+const auditLogRoutes = require('./routes/auditLogRoutes');
 
-// 1. Initialize Express App
 const app = express();
 
-// 2. Standard Parsers & Middleware
+// Standard Middleware
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Required for simulated credential submissions
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
-// 3. Static Testing Console / Frontend Shell
-app.use(express.static(path.join(__dirname, 'public')));
+// Static assets (JS, CSS, images) — index: false so "/" routes to /login
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
-// 4. Public Target Interception & Tracking Routes (No JWT)
-app.use('/api/track', trackingRoutes);
-app.use('/', landingRoutes);
-
-// 5. Protected Administrative, Simulation, Awareness, and Reporting APIs
+// --- API Routes ---
 app.use('/api/auth', authRoutes);
 app.use('/api/employees', employeeRoutes);
-app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/campaigns', campaignRoutes);
+app.use('/api/track', trackingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/templates', templateRoutes);
-app.use('/api/campaigns', campaignRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/quizzes', quizRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
-// 6. System Health Check Probe
+// Phishing Landing Page Clones & Interceptors (/login/:slug, /landing-page)
+app.use('/', landingRoutes);
+
+// --- Dedicated Multi-Page Application HTML Routes (Issue #1) ---
+app.get('/', (req, res) => {
+  // Preserve OAuth query parameters if callback hits root
+  const query = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+  return res.redirect(`/login${query}`);
+});
+
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/admin-login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin-login.html'));
+});
+
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+app.get('/employee', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'employee.html'));
+});
+
+app.get('/onboarding', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'onboarding.html'));
+});
+
+app.get('/reset-password', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'reset-password.html'));
+});
+
+// Health Check Route
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'success', message: 'Server is up and running!' });
+  res.status(200).json({ status: 'success', message: 'SME Phishing Simulator is running.' });
 });
 
 const PORT = process.env.PORT || 3000;
-
-const server = app.listen(PORT, () => {
+app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-
-  // Background automation worker: runs every 60 seconds to fire scheduled campaigns
-  setInterval(() => {
-    if (typeof campaignController.runScheduledCampaignsEngine === 'function') {
-      campaignController.runScheduledCampaignsEngine();
-    }
-  }, 60 * 1000);
+  console.log(`  ├── Employee / Unified Login : http://localhost:${PORT}/login`);
+  console.log(`  ├── Admin SOC Login          : http://localhost:${PORT}/admin-login`);
+  console.log(`  ├── Admin SOC Console        : http://localhost:${PORT}/admin`);
+  console.log(`  └── Employee Training Portal : http://localhost:${PORT}/employee`);
 });
-
-module.exports = server;

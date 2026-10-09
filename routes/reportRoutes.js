@@ -1,3 +1,4 @@
+/* eslint-env node */
 'use strict';
 
 const express = require('express');
@@ -7,8 +8,8 @@ const reportController = require('../controllers/reportController');
 const router = express.Router();
 
 /**
- * Middleware: Allow JWT token from either Authorization header OR ?token= query parameter.
- * This resolves the 401 Unauthorized issue when the browser opens a PDF or CSV in a new window.
+ * Middleware: Allow JWT token from either the Authorization header OR a ?token= query parameter.
+ * This ensures PDF and CSV streams trigger seamlessly when launched in fresh tabs or window.open().
  */
 router.use((req, res, next) => {
   if (!req.headers.authorization && req.query.token) {
@@ -21,16 +22,19 @@ router.use((req, res, next) => {
 // Require Admin JWT authentication
 router.use(passport.authenticate('jwt', { session: false }));
 
-// Campaign Dashboard Metrics
+// Organization-Wide Executive Overview Routes
+router.get('/overview', reportController.getExecutiveOverview);
+
+// Campaign & Aggregated Dashboard Metrics
 router.get('/campaign/:id', reportController.getCampaignDashboard);
 
-// Campaign CSV Export
+// CSV Data Exports (Supports both :id and 'all')
 router.get('/campaign/:id/csv', reportController.exportCampaignCSV);
 
-// Campaign PDF Executive Report Stream
+// PDF Executive Reports (Supports both :id and 'all')
 router.get('/campaign/:id/pdf', reportController.exportCampaignPDF);
 
-// Employee Training & Assessment Progress Report
+// Training Assessment Matrix & Remediation Report
 router.get('/training-progress', reportController.getEmployeeTrainingProgress);
 
 module.exports = router;
